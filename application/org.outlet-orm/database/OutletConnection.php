@@ -17,21 +17,22 @@
 class OutletConnection
 {
 	/**
-	 * @var string
-	 */
-	private $driver;
-	
-	/**
+	 * Stores the database type
+	 * 
 	 * @var string
 	 */
 	private $dialect;
 	
 	/**
+	 * Stores a PDO database connection
+	 * 
 	 * @var PDO
 	 */
 	private $pdo;
 	
 	/**
+	 * Stores the nested transaction level
+	 * 
 	 * @var int
 	 */
 	protected $nestedTransactionLevel;
@@ -40,7 +41,7 @@ class OutletConnection
 	 * Assume that the driver supports transactions until proven otherwise
 	 * 
 	 * @see OutletConnection::beginTransaction()
-	 * @var bool
+	 * @var boolean
 	 */
 	protected $driverSupportsTransactions;
 
@@ -49,23 +50,37 @@ class OutletConnection
 	 * 
 	 * @param PDO $pdo
 	 * @param string $dialect It can be 'sqlite', 'mysql', 'mssql', or 'pgsql'
-	 * @return OutletConnection instance
 	 */
 	public function __construct(PDO $pdo, $dialect)
 	{
 		$this->nestedTransactionLevel = 0;
 		$this->driverSupportsTransactions = true;
-		$this->pdo = $pdo;
-		$this->dialect = $dialect;
+		$this->setPDO($pdo);
+		$this->setDialect($dialect);
 	}
 
 	/**
 	 * The dialect, can be 'sqlite', 'mysql', 'mssql', or 'pgsql'
+	 * 
 	 * @return string
 	 */
 	public function getDialect()
 	{
 		return $this->dialect;
+	}
+	
+	/**
+	 * Configures the dialect, can be 'sqlite', 'mysql', 'mssql', or 'pgsql'
+	 * 
+	 * @param string $dialect
+	 */
+	public function setDialect($dialect)
+	{
+		if (!in_array($dialect, array('sqlite', 'mysql', 'mssql', 'pgsql'))) {
+			throw new InvalidArgumentException('Invalid dialect! It can just be: "sqlite", "mysql", "mssql", or "pgsql"');
+		}
+		
+		$this->dialect = $dialect;
 	}
 
 	/**
@@ -89,21 +104,39 @@ class OutletConnection
 	{
 		$this->pdo = $pdo;
 	}
+	
+	/**
+	 * Returns if the driver supports transaction
+	 * 
+	 * @return boolean
+	 */
+	public function isTransactionSupported()
+	{
+		return $this->driverSupportsTransactions;
+	}
+	
+	/**
+	 * Returns the nested transaction level
+	 * 
+	 * @return int
+	 */
+	public function getTransactionLevel()
+	{
+		return $this->nestedTransactionLevel;
+	}
 
 	/**
 	 * Begins a database transaction
 	 * 
-	 * @return bool true if successful, false otherwise 
+	 * @return boolean true if successful, false otherwise 
 	 */
 	public function beginTransaction()
 	{
 		if (!$this->nestedTransactionLevel++) {
-			// attempt standard pdo beginTransaction
 			try {
 				return $this->pdo->beginTransaction();
 			} catch (PDOException $e) {
-				// save the fact that this driver (probably dblib) doesn't support transactions
-				if ($this->driverSupportsTransactions) {
+				if ($this->isTransactionSupported()) {
 					$this->driverSupportsTransactions = false;
 				}
 				
@@ -123,8 +156,7 @@ class OutletConnection
 	public function commit()
 	{
 		if (!--$this->nestedTransactionLevel) {
-			// commit using best method as determined in OutletConnection::beginTransaction
-			if ($this->driverSupportsTransactions) {
+			if ($this->isTransactionSupported()) {
 				return $this->pdo->commit();
 			} else {
 				return $this->exec('COMMIT TRANSACTION');
@@ -143,8 +175,7 @@ class OutletConnection
 	public function rollBack()
 	{
 		if (!--$this->nestedTransactionLevel) {
-			// rollback using best method as determined in OutletConnection::beginTransaction()
-			if ($this->driverSupportsTransactions) {
+			if ($this->isTransactionSupported()) {
 				return $this->pdo->rollBack();
 			} else {
 				$this->exec('ROLLBACK TRANSACTION');
@@ -157,24 +188,30 @@ class OutletConnection
 	/**
 	 * Quotes a value to escape special characters, protects against sql injection attacks
 	 * 
-	 * @param mixed $v value to escape
+	 * @param mixed $value value to escape
 	 * @return string the escaped value 
 	 */
-	public function quote($v)
+	public function quote($value)
 	{
-		$quoted = $this->pdo->quote($v);
+		$quoted = $this->pdo->quote($value);
 		
-		// odbc doesn't support quote and returns false
-		// quote it manually if that's the case	
-		if ($v !== false && $quoted === false) {
-			if (is_int($v)) {
-				$quoted = $v;
-			} else {
-				$quoted = "'" . str_replace("'", "''", $v) . "'";
-			}
+		if (!$this->hasQuoteSupport($value, $quoted)) {
+			$quoted = is_int($value) ? $value : "'" . str_replace("'", "''", $value) . "'";
 		}
 		
 		return $quoted;
+	}
+	
+	/**
+	 * Checks if the driver has quote support (odbc doesn't support quote and returns false)
+	 * 
+	 * @param mixed $value
+	 * @param midex $quotedValue
+	 * @return boolean
+	 */
+	protected function hasQuoteSupport($value, $quotedValue)
+	{
+		return !($value !== false && $quotedValue === false);
 	}
 
 	/**
