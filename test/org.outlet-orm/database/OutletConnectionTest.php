@@ -12,7 +12,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function test__construct()
 	{
-		$pdo = $this->getMock('PDO', array(), array(), '', false);
+		$pdo = $this->getMock('PDO', array(), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$this->assertEquals($pdo, $connection->getPDO());
@@ -47,7 +47,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testSetPDO()
 	{
-		$pdo = $this->getMock('PDO', array(), array(), '', false);
+		$pdo = $this->getMock('PDO', array(), array('sqlite::memory:'));
 		$connection = $this->getMock('OutletConnection', array('beginTransaction'), array(), '', false);
 		
 		$connection->setPDO($pdo);
@@ -59,7 +59,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testBeginTransaction()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -77,7 +77,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testBeginTransactionConsecutiveCalls()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -99,7 +99,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testBeginTransactionNoTransactionSupport()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -121,7 +121,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testCommit()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'commit'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'commit'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -147,7 +147,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testCommitConsecutiveCalls()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'commit'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'commit'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -179,7 +179,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testCommitNoTransactionSupport()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'commit'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'commit'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -205,7 +205,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testRollBack()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'rollBack'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'rollBack'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -231,7 +231,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testRollBackConsecutiveCalls()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'rollBack'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'rollBack'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -263,7 +263,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testRollBackNoTransactionSupport()
 	{
-		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'rollBack'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('beginTransaction', 'exec', 'rollBack'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -289,7 +289,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testQuote()
 	{
-		$pdo = $this->getMock('PDO', array('quote'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('quote'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -305,7 +305,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testQuoteNotSupported()
 	{
-		$pdo = $this->getMock('PDO', array('quote'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('quote'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -321,7 +321,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testQuoteNotSupportedWithString()
 	{
-		$pdo = $this->getMock('PDO', array('quote'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('quote'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -337,7 +337,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testLastInsertId()
 	{
-		$pdo = $this->getMock('PDO', array('lastInsertId'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('lastInsertId'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -353,7 +353,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testLastInsertIdWithSequenceName()
 	{
-		$pdo = $this->getMock('PDO', array('lastInsertId'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('lastInsertId'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
@@ -369,8 +369,8 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testLastInsertIdMssql()
 	{
-		$pdo = $this->getMock('PDO', array('lastInsertId', 'query'), array(), '', false);
-		$stm = $this->getMock('PDOStatement', array('fetchColumn'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('lastInsertId', 'query'), array('sqlite::memory:'));
+		$stm = $this->getMock('PDOStatement', array('fetchColumn'));
 		$connection = new OutletConnection($pdo, 'mssql');
 		
 		$pdo->expects($this->never())
@@ -394,7 +394,7 @@ class OutletConnectionTest extends PHPUnit_Framework_TestCase
 	 */
 	public function test__call()
 	{
-		$pdo = $this->getMock('PDO', array('blablabla'), array(), '', false);
+		$pdo = $this->getMock('PDO', array('blablabla'), array('sqlite::memory:'));
 		$connection = new OutletConnection($pdo, 'mysql');
 		
 		$pdo->expects($this->once())
