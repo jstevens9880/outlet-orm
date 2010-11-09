@@ -22,19 +22,19 @@ class OutletManyToOneAssociation extends OutletAssociation
 	protected $optional;
 
 	/**
-	 * @param OutletEntityMap $entity
-	 * @param string $name
+	 * @param OutletEntity $entity
 	 * @param string $key
 	 * @param string $refKey
+	 * @param string $name
 	 * @param string $optional
 	 */
-	public function __construct(OutletEntityMap $entity, $name, $key, $refKey, $optional)
+	public function __construct(OutletEntity $entity, $key, $refKey, $name = null, $optional = false)
 	{
-		$this->entity = $entity;
-		$this->name = $name;
-		$this->key = $key;
-		$this->refKey = $refKey;
-		$this->optional = $optional;
+		$this->setEntity($entity);
+		$this->setKey($key);
+		$this->setRefKey($refKey);
+		$this->setName(!is_null($name) ? $name : $entity->getName());
+		$this->setOptional($optional);
 	}
 
 	/**
@@ -43,5 +43,13 @@ class OutletManyToOneAssociation extends OutletAssociation
 	public function isOptional()
 	{
 		return $this->optional;
+	}
+	
+	/**
+	 * @param boolean $optional
+	 */
+	public function setOptional($optional)
+	{
+		$this->optional = $optional;
 	}
 }

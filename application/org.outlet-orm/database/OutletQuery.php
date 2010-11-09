@@ -229,7 +229,7 @@ class OutletQuery
 		return $this;
 	}
 
-	private function addWiths(OutletSqlQuery $oq, OutletEntityMap $entMap, $from_aliased, &$with_map, $addToSelect = true)
+	private function addWiths(OutletSqlQuery $oq, OutletEntity $entMap, $from_aliased, &$with_map, $addToSelect = true)
 	{
 		// get the included entities
 		$with = array();
@@ -246,18 +246,17 @@ class OutletQuery
 				throw new OutletException('No association found with entity or alias [' . $with[$with_key] . ']');
 			}
 			
-			$foreign = $assoc->getEntityMap();
+			$foreign = $assoc->getEntity();
 			
 			if ($addToSelect) {
-				foreach ($foreign->getPropMaps() as $key => $p) {
+				foreach ($foreign->getProperties() as $key => $p) {
 					//$select_cols[] = "\n{" . $with_aliased[$with_key] . '.' . $key . '} as ' . $with_aliased[$with_key] . '_' . $key;
 					$oq->addSelectField('{' . $with_aliased[$with_key] . '.' . $key . '} as ' . $with_aliased[$with_key] . '_' . $key);
 				}
 			}
 			
 			$aliased_join = $with_aliased[$with_key];
-			//$join_q .= "LEFT JOIN {" . $foreign->getClass() . " " . $aliased_join . "} ON {" . $from_aliased . '.' . $assoc->getKey() . "} = {" . $with_aliased[$with_key] . '.' . $assoc->getRefKey() . "} \n";
-			$oq->addJoin('LEFT JOIN {' . $foreign->getClass() . ' ' . $aliased_join . '} ON {' . $from_aliased . '.' . $assoc->getKey() . '} = {' . $with_aliased[$with_key] . '.' . $assoc->getRefKey() . '}');
+			$oq->addJoin('LEFT JOIN {' . $foreign->getName() . ' ' . $aliased_join . '} ON {' . $from_aliased . '.' . $assoc->getKey() . '} = {' . $with_aliased[$with_key] . '.' . $assoc->getRefKey() . '}');
 		}
 		
 		if (count($with)) {
@@ -275,6 +274,7 @@ class OutletQuery
 	public function find()
 	{
 		$oq = new OutletSqlQuery();
+		$with_map = array();
 		
 		$outlet = Outlet::getInstance();
 		
@@ -287,9 +287,10 @@ class OutletQuery
 		$entMap = $outlet->getEntityMap($from);
 		
 		// select columns
-		foreach ($entMap->getPropMaps() as $key => $p) {
+		foreach ($entMap->getProperties() as $key => $p) {
 			$oq->addSelectField('{' . $from_aliased . '.' . $key . '} as ' . $from_aliased . '_' . $key);
 		}
+		
 		if ($this->select) {
 			//$q .= ", " . $this->select;
 			$oq->addSelectField($this->select);
@@ -356,6 +357,7 @@ class OutletQuery
 	public function count()
 	{
 		$oq = new OutletSqlQuery();
+		$with_map = array();
 		
 		$outlet = Outlet::getInstance();
 		
@@ -401,7 +403,7 @@ class OutletQuery
 		return (int) $res[0]['total'];
 	}
 
-	private function populateObject(array $row, OutletEntityMap $entMap, $from_aliased, $from, array $with_map)
+	private function populateObject(array $row, OutletEntity $entMap, $from_aliased, $from, array $with_map)
 	{
 		$data = array();
 		$outlet = Outlet::getInstance();
@@ -409,7 +411,7 @@ class OutletQuery
 		// TODO: Maybe everything should be converted to lower in query creation / processing to avoid this
 		$dialect = $outlet->getConnection()->getDialect();
 		
-		foreach ($entMap->getPropMaps() as $key => $p) {
+		foreach ($entMap->getProperties() as $key => $p) {
 			if ($dialect == 'pgsql') {
 				$data[$p[0]] = $row[strtolower($from_aliased) . '_' . strtolower($key)];
 			} else {
@@ -425,16 +427,14 @@ class OutletQuery
 			if ($a) {
 				$data = array();
 				$setter = 'set' . $a->getName();
-				$with_entMap = $a->getEntityMap();
+				$with_entMap = $a->getEntity();
 				
-				if ($a instanceof OutletOneToManyConfig) {
+				if ($a instanceof OutletOneToManyAssociation) {
 					// TODO: Implement...											 
-				} elseif ($a instanceof OutletManyToManyConfig) {
+				} elseif ($a instanceof OutletManyToManyAssociation) {
 					// TODO: Implement...
 				} else { // Many-to-one or one-to-one
-					
-
-					foreach ($with_entMap->getPropMaps() as $key => $p) {
+					foreach ($with_entMap->getProperties() as $key => $p) {
 						// Postgres returns columns as lowercase
 						// TODO: Maybe everything should be converted to lower in query creation / processing to avoid this
 						if ($dialect == 'pgsql') {
@@ -444,7 +444,7 @@ class OutletQuery
 						}
 					}
 					
-					$f = $with_entMap->getPkColumns();
+					$f = $with_entMap->getPrimaryKeysColumns();
 					
 					// check to see if we found any data for the related entity
 					// using the pk
@@ -460,7 +460,7 @@ class OutletQuery
 					
 					// only fill object if there was data returned
 					if ($data_returned) {
-						$obj->$setter($outlet->getEntityForRow($with_entMap->getClass(), $data));
+						$obj->$setter($outlet->getEntityForRow($with_entMap->getName(), $data));
 					}
 				}
 			}

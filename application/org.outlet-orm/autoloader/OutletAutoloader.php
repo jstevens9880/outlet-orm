@@ -84,6 +84,7 @@ class OutletAutoloader
 		$dir->append($rootDir . 'config/');
 		$dir->append($rootDir . 'core/');
 		$dir->append($rootDir . 'database/');
+		$dir->append($rootDir . 'entity/');
 		$dir->append($rootDir . 'map/');
 		$dir->append($rootDir . 'nestedset/');
 		$dir->append($rootDir . 'pagination/');

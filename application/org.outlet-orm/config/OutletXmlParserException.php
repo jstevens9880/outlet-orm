@@ -1,6 +1,6 @@
 <?php
 /**
- * Contains the exception for XML problems
+ * Contains the exception for XML config problems
  * 
  * @package org.outlet-orm
  * @subpackage config
@@ -14,6 +14,6 @@
  * @subpackage config
  * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
  */
-class OutletXmlException extends OutletException
+class OutletXmlParserException extends OutletConfigException
 {
 }

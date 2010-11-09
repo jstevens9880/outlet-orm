@@ -16,45 +16,6 @@
  */
 class OutletProxyGenerator
 {
-	private $map;
-
-	/**
-	 * Constructs a new instance of OutletProxyGenerator
-	 * 
-	 * @param OutletConfig $config configuration
-	 * @return OutletProxyGenerator instance
-	 */
-	public function __construct(array $map)
-	{
-		$this->map = $map;
-	}
-
-	/**
-	 * Extracts primary key information from a configuration for a given class
-	 * 
-	 * @param array $conf configuration array
-	 * @param string $clazz entity class 
-	 * @return array primary key properties
-	 */
-	public function getPkProp($conf, $clazz)
-	{
-		foreach ($conf['classes'][$clazz]['props'] as $key => $f) {
-			if (isset($f[2]['pk']) && $f[2]['pk'] == true) {
-				$pks[] = $key;
-			}
-			
-			if (!count($pks)) {
-				throw new Exception('You must specified at least one primary key');
-			}
-			
-			if (count($pks) == 1) {
-				return $pks[0];
-			} else {
-				return $pks;
-			}
-		}
-	}
-
 	/**
 	 * Generates the source code for the proxy classes
 	 * 
@@ -63,34 +24,62 @@ class OutletProxyGenerator
 	public function generate()
 	{
 		$c = '';
-		foreach ($this->map as $entMap) {
-			$clazz = $entMap->getClass();
-			
-			$c .= "class {$clazz}_OutletProxy extends $clazz implements OutletProxy { \n";
-			$c .= "  static \$_outlet; \n";
-			
-			foreach ($entMap->getAssociations() as $assoc) {
-				switch ($assoc->getType()) {
-					case 'one-to-many':
-						$c .= $this->createOneToManyFunctions($entMap, $assoc);
-						break;
-					case 'many-to-one':
-						$c .= $this->createManyToOneFunctions($entMap, $assoc);
-						break;
-					case 'one-to-one':
-						$c .= $this->createOneToOneFunctions($entMap, $assoc);
-						break;
-					case 'many-to-many':
-						$c .= $this->createManyToManyFunctions($entMap, $assoc);
-						break;
-					default:
-						throw new Exception("invalid association type: {$assoc->getType()}");
-				}
+		
+		foreach ($this->getEntityMaps() as $entity) {
+			if (!class_exists($entity->getName() . '_OutletProxy')) {
+				$c .= $this->generateProxy($entity);
 			}
-			$c .= "} \n";
 		}
 		
 		return $c;
+	}
+	
+	/**
+	 * Generate the proxy class definition
+	 * 
+	 * @param OutletEntity $entity
+	 * @throws OutletException
+	 * @return string
+	 */
+	public function generateProxy(OutletEntity $entity)
+	{
+		$c = $this->getFormattedString('class ' . $entity->getName() . '_OutletProxy extends ' . $entity->getName() . ' implements OutletProxy', 0, 1);
+		$c .= $this->getFormattedString('{', 0, 0);
+		
+		foreach ($entity->getAssociations() as $assoc) {
+			switch ($assoc->getType()) {
+				case 'one-to-many':
+					$c .= $this->createOneToManyFunctions($entity, $assoc);
+					break;
+				case 'many-to-one':
+					$c .= $this->createManyToOneFunctions($entity, $assoc);
+					break;
+				case 'one-to-one':
+					$c .= $this->createOneToOneFunctions($entity, $assoc);
+					break;
+				case 'many-to-many':
+					$c .= $this->createManyToManyFunctions($entity, $assoc);
+					break;
+				default:
+					throw new OutletException('Invalid association type: ' .$assoc->getType());
+			}
+		}
+		
+		if (substr($c, -1, 1) == "{") {
+			$c .= $this->getFormattedString('', 0, 1);
+		}
+		
+		$c .= $this->getFormattedString('}', 0, 2);
+		
+		return $c;
+	}
+	
+	/**
+	 * @return ArrayObject
+	 */
+	protected function getEntityMaps()
+	{
+		return Outlet::getInstance()->getConfig()->getEntities();
 	}
 
 	/**
@@ -99,27 +88,31 @@ class OutletProxyGenerator
 	 * @param OutletAssociationConfig $config configuration
 	 * @return string one to one function code
 	 */
-	public function createOneToOneFunctions(OutletEntityMap $entMap, OutletOneToOneAssociation $assoc)
+	public function createOneToOneFunctions(OutletEntity $entMap, OutletOneToOneAssociation $assoc)
 	{
-		$foreignMap = $assoc->getEntityMap();
-		$foreign = $foreignMap->getClass();
-
+		$foreign = $assoc->getEntity()->getName();
 		$key = $assoc->getKey();
 		$getter = 'get'.$assoc->getName();
 		$setter = 'set'.$assoc->getName();
 		
-		if ($entMap->useGettersAndSetters) {
-			$key = 'get' . $key . '()';
+		if ($entMap->useGettersAndSetters('get' . $key)) {
+			$key = 'get' . ucfirst($key) . '()';
 		}
 		
 		$c = '';
-		$c .= "  function $getter() { \n";
-		$c .= "	if (is_null(\$this->$key)) return parent::$getter(); \n";
-		$c .= "	if (is_null(parent::$getter()) && \$this->$key) { \n";
-		$c .= "	  parent::$setter( self::\$_outlet->load('$foreign', \$this->$key) ); \n";
-		$c .= "	} \n";
-		$c .= "	return parent::$getter(); \n";
-		$c .= "  } \n";
+		$c .= $this->getFormattedString('', 0, 1);
+		$c .= $this->getFormattedString('public function ' . $getter . '()', 1, 1);
+		$c .= $this->getFormattedString('{', 1, 1);
+		$c .= $this->getFormattedString('  if (is_null($this->' . $key . ')) {', 2, 1);
+		$c .= $this->getFormattedString('    return parent::' . $getter . '();', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
+		
+		$c .= $this->getFormattedString('  if (is_null(parent::' . $getter . '()) && $this->' . $key .') {', 2, 1);
+		$c .= $this->getFormattedString('    parent::' . $setter . '(Outlet::getInstance()->load(\'' . $foreign . '\', $this->' . $key . '));', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
+
+		$c .= $this->getFormattedString('  return parent::' . $getter . '();', 2, 1);
+		$c .= $this->getFormattedString('}', 1, 1);
 		
 		return $c;
 	}
@@ -130,54 +123,59 @@ class OutletProxyGenerator
 	 * @param OutletAssociationConfig $config configuration
 	 * @return string one to many functions code
 	 */
-	public function createOneToManyFunctions(OutletEntityMap $entMap, OutletOneToManyAssociation $assoc)
+	public function createOneToManyFunctions(OutletEntity $entMap, OutletOneToManyAssociation $assoc)
 	{
-		$foreignMap = $assoc->getEntityMap();
-		$foreign = $foreignMap->getClass();
-		
+		$foreign = $assoc->getEntity()->getName();
 		$key = $assoc->getKey();
 		$pk_prop = $assoc->getRefKey();
 		
-		$getter = 'get'.$assoc->getName();
-		$setter = 'set'.$assoc->getName();
+		$getter = 'get' . $assoc->getName();
+		$setter = 'set' . $assoc->getName();
 		
-		if ($entMap->useGettersAndSetters) {
-			$pk_prop = 'get' . $pk_prop . '()';
+		if ($entMap->useGettersAndSetters('get' . $pk_prop)) {
+			$pk_prop = 'get' . ucfirst($pk_prop) . '()';
 		}
 		
 		$c = '';
-		$c .= "  function {$getter}() { \n";
-		$c .= "	\$args = func_get_args(); \n";
-		$c .= "	if (count(\$args)) { \n";
-		$c .= "	  if (is_null(\$args[0])) return parent::{$getter}(); \n";
-		$c .= "	  \$q = \$args[0]; \n";
-		$c .= "	} else { \n";
-		$c .= "	  \$q = ''; \n";
-		$c .= "	} \n";
-		$c .= "	if (isset(\$args[1])) \$params = \$args[1]; \n";
-		$c .= "	else \$params = array(); \n";
+		$c .= $this->getFormattedString('', 0, 1);
+		$c .= $this->getFormattedString('public function ' . $getter . '()', 1, 1);
+		$c .= $this->getFormattedString('{', 1, 1);
+		$c .= $this->getFormattedString('  $args = func_get_args();', 2, 2);
 		
-		// if there's a where clause
-		//$c .= "	echo \$q; \n";
-		$c .= "	\$q = trim(\$q); \n";
-		$c .= "	if (stripos(\$q, 'where') !== false) { \n";
-		$c .= "	  \$q = '{" . "$foreign.$key} = '.\$this->$pk_prop.' and ' . substr(\$q, 5); \n";
-		$c .= "	} else { \n";
-		$c .= "	  \$q = '{" . "$foreign.$key} = '.\$this->$pk_prop. ' ' . \$q; \n";
-		$c .= "	}\n";
-		//$c .= "	echo \"<h2>\$q</h2>\"; \n";
+		$c .= $this->getFormattedString('  if (count($args)) {', 2, 1);
+		$c .= $this->getFormattedString('    if (is_null($args[0])) {', 3, 1);
+		$c .= $this->getFormattedString('      return parent::' . $getter . '();', 4, 1);
+		$c .= $this->getFormattedString('    }', 3, 2);
 		
+		$c .= $this->getFormattedString('    $q = $args[0];', 3, 1);
+		$c .= $this->getFormattedString('  } else {', 2, 1);
+		$c .= $this->getFormattedString('    $q = \'\';', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
+		
+		$c .= $this->getFormattedString('  if (isset($args[1])) {', 2, 1);
+		$c .= $this->getFormattedString('    $params = $args[1];', 3, 1);
+		$c .= $this->getFormattedString('  } else {', 2, 1);
+		$c .= $this->getFormattedString('    $params = array();', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
+		
+		$c .= $this->getFormattedString('  $q = trim($q);', 2, 2);
+		
+		$c .= $this->getFormattedString('  if (stripos($q, \'where\') !== false) {', 2, 1);
+		$c .= $this->getFormattedString('    $q = \'{' . $foreign . '.' . $key . '} = \' . $this->' . $pk_prop . ' . \' AND \' . substr($q, 5);', 3, 1);
+		$c .= $this->getFormattedString('  } else {', 2, 1);
+		$c .= $this->getFormattedString('    $q = \'{' . $foreign . '.' . $key . '} = \' . $this->' . $pk_prop . ' . \' \' . $q;', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
+		
+		$c .= $this->getFormattedString('  $query = Outlet::getInstance()->from(\'' . $foreign . '\')->where($q, $params);', 2, 1);
+		$c .= $this->getFormattedString('  $cur_coll = parent::' . $getter . '();', 2, 2);
+		
+		$c .= $this->getFormattedString('  if (!$cur_coll instanceof OutletCollection || $cur_coll->getQuery() != $query) {', 2, 1);
+		$c .= $this->getFormattedString('    parent::' . $setter . '(new OutletCollection($query));', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
 
-		$c .= "	\$query = self::\$_outlet->from('$foreign')->where(\$q, \$params); \n";
-		$c .= "	\$cur_coll = parent::{$getter}(); \n";
+		$c .= $this->getFormattedString('  return parent::' . $getter . '();', 2, 1);
 		
-		// only set the collection if the parent is not already an OutletCollection
-		// or if the query is different from the previous query
-		$c .= "	if (!\$cur_coll instanceof OutletCollection || \$cur_coll->getQuery() != \$query) { \n";
-		$c .= "	  parent::{$setter}( new OutletCollection( \$query ) ); \n";
-		$c .= "	} \n";
-		$c .= "	return parent::{$getter}(); \n";
-		$c .= "  } \n";
+		$c .= $this->getFormattedString('}', 1, 1);
 		
 		return $c;
 	}
@@ -188,11 +186,10 @@ class OutletProxyGenerator
 	 * @param OutletManyToManyConfig $config configuration
 	 * @return string many to many function code
 	 */
-	public function createManyToManyFunctions(OutletEntityMap $entMap, OutletManyToManyAssociation $assoc)
+	public function createManyToManyFunctions(OutletEntity $entMap, OutletManyToManyAssociation $assoc)
 	{
-		$foreignMap = $assoc->getEntityMap();
-		$foreign = $foreignMap->getClass();
-		
+		$foreignMap = $assoc->getEntity();
+		$foreign = $foreignMap->getName();
 		$tableKeyLocal = $assoc->getTableKeyLocal();
 		$tableKeyForeign = $assoc->getTableKeyForeign();
 		
@@ -202,20 +199,25 @@ class OutletProxyGenerator
 		$setter = 'set'.$assoc->getName();
 		$table = $assoc->getLinkingTable();
 		
-		if ($foreignMap->useGettersAndSetters) {
-			$ref_pk = 'get' . $ref_pk . '()';
+		if ($foreignMap->useGettersAndSetters('get' . $ref_pk)) {
+			$ref_pk = 'get' . ucfirst($ref_pk) . '()';
 		}
 		
 		$c = '';
-		$c .= "  function {$getter}() { \n";
-		$c .= "	if (parent::$getter() instanceof OutletCollection) return parent::$getter(); \n";
-		//$c .= "	if (stripos(\$q, 'where') !== false) { \n";
-		$c .= "	\$q = self::\$_outlet->from('$foreign') \n";
-		$c .= "		->innerJoin('$table ON {$table}.{$tableKeyForeign} = {" . "$foreign.$pk_prop}') \n";
-		$c .= "		->where('{$table}.{$tableKeyLocal} = ?', array(\$this->$ref_pk)); \n";
-		$c .= "	parent::{$setter}( new OutletCollection( \$q ) ); \n";
-		$c .= "	return parent::{$getter}(); \n";
-		$c .= "  } \n";
+		$c .= $this->getFormattedString('', 0, 1);
+		$c .= $this->getFormattedString('public function ' . $getter . '()', 1, 1);
+		$c .= $this->getFormattedString('{', 1, 1);
+		$c .= $this->getFormattedString('  if (parent::' . $getter . '() instanceof OutletCollection) {', 2, 1);
+		$c .= $this->getFormattedString('    return parent::' . $getter . '();', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
+		
+		$c .= $this->getFormattedString('  $q = Outlet::getInstance()->from(\'' . $foreign . '\')', 2, 1);
+		$c .= $this->getFormattedString('       ->innerJoin(\'' . $table . ' ON ' . $table . '.' . $tableKeyForeign . ' = {' . $foreign . '.' . $pk_prop . '}\')', 4, 1);
+		$c .= $this->getFormattedString('       ->where(\'' . $table . '.' . $tableKeyLocal . ' = ?\', array($this->' . $ref_pk . '));', 4, 2);
+		
+		$c .= $this->getFormattedString('  parent::' . $setter . '(new OutletCollection($q));', 2, 2);
+		$c .= $this->getFormattedString('  return parent::' . $getter . '();', 2, 1);
+		$c .= $this->getFormattedString('}', 1, 1);
 		
 		return $c;
 	}
@@ -226,59 +228,76 @@ class OutletProxyGenerator
 	 * @param OutletAssociationConfig $config configuration
 	 * @return string many to one function code
 	 */
-	public function createManyToOneFunctions(OutletEntityMap $entMap, OutletManyToOneAssociation $assoc)
+	public function createManyToOneFunctions(OutletEntity $entMap, OutletManyToOneAssociation $assoc)
 	{
-		$foreignMap	= $assoc->getEntityMap();
-		$foreign 	= $foreignMap->getClass();
+		$foreignMap = $assoc->getEntity();
+		$foreign = $foreignMap->getName();
+		$key = $assoc->getKey();
+		$refKey = $assoc->getRefKey();
 		
-		$key 		= $assoc->getKey();
-		$refKey 	= $assoc->getRefKey();
+		$getter = 'get'.$assoc->getName();
+		$setter = 'set'.$assoc->getName();
 		
-		$getter 	= 'get'.$assoc->getName();
-		$setter 	= 'set'.$assoc->getName();
-		
-		if ($entMap->useGettersAndSetters) {
-			$keyGetter = 'get' . $key . '()';
+		if ($entMap->useGettersAndSetters('get' . $key)) {
+			$keyGetter = 'get' . ucfirst($key) . '()';
 		} else {
 			$keyGetter = $key;
 		}
 		
-		if ($foreignMap->useGettersAndSetters) {
-			$refKey = 'get' . $refKey . '()';
+		if ($foreignMap->useGettersAndSetters('get' . $refKey)) {
+			$refKey = 'get' . ucfirst($refKey) . '()';
 		}
 		
 		$c = '';
-		$c .= "  function $getter() { \n";
-		$c .= "	if (is_null(\$this->$keyGetter)) return parent::$getter(); \n";
-		$c .= "	if (is_null(parent::$getter())) { \n"; //&& isset(\$this->$keyGetter)) { \n";
-		$c .= "	  parent::$setter( self::\$_outlet->load('$foreign', \$this->$keyGetter) ); \n";
-		$c .= "	} \n";
-		$c .= "	return parent::$getter(); \n";
-		$c .= "  } \n";
+		$c .= $this->getFormattedString('', 0, 1);
+		$c .= $this->getFormattedString('public function ' . $getter . '()', 1, 1);
+		$c .= $this->getFormattedString('{', 1, 1);
+		$c .= $this->getFormattedString('  if (is_null($this->' . $keyGetter . ')) {', 2, 1);
+		$c .= $this->getFormattedString('    return parent::' . $getter . '();', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
 		
-		$c .= "  function $setter($foreign \$ref" . ($assoc->isOptional() ? '=null' : '') . ") { \n";
-		$c .= "	if (is_null(\$ref)) { \n";
+		$c .= $this->getFormattedString('  if (is_null(parent::' . $getter . '())) {', 2, 1);
+		$c .= $this->getFormattedString('    parent::' . $setter .'(Outlet::getInstance()->load(\'' . $foreign . '\', $this->' . $keyGetter . '));', 3, 1);
+		$c .= $this->getFormattedString('  }', 2, 2);
+		
+		$c .= $this->getFormattedString('  return parent::' . $getter . '();', 2, 1);
+		$c .= $this->getFormattedString('}', 1, 1);
+		
+		$c .= $this->getFormattedString('', 0, 1);
+		$c .= $this->getFormattedString('public function ' . $setter . '(' . $foreign . ' $ref' . ($assoc->isOptional() ? ' = null' : '') . ')', 1, 1);
+		$c .= $this->getFormattedString('{', 1, 1);
+		$c .= $this->getFormattedString('  if (is_null($ref)) {', 2, 1);
 		
 		if ($assoc->isOptional()) {
-			$c .= "	  \$this->$keyGetter = null; \n";
+			$c .= $this->getFormattedString('    return parent::' . $setter . '(null);', 3, 1);
 		} else {
-			$c .= "	  throw new OutletException(\"You can not set this to NULL since this relationship has not been marked as optional\"); \n";
+			$c .= $this->getFormattedString('    throw new OutletException(\'You can not set this to NULL since this relationship has not been marked as optional\');', 3, 1);
 		}
 		
-		$c .= "	  return parent::$setter(null); \n";
-		$c .= "	} \n";
-		
-		//$c .= "	\$mapped = new OutletMapper(\$ref); \n";
-		//$c .= "	\$this->$key = \$mapped->getPK(); \n";
-		if ($entMap->useGettersAndSetters) {
-			$c .= "	\$this->set$key(\$ref->{$refKey}); \n";
+		$c .= $this->getFormattedString('  }', 2, 2);
+
+		if ($entMap->useGettersAndSetters('set' . $key)) {
+			$c .= $this->getFormattedString('  $this->set' . $key . '($ref->' . $refKey . ');', 2, 2);
 		} else {
-			$c .= "	\$this->$key = \$ref->{$refKey}; \n";
+			$c .= $this->getFormattedString('  $this->' . $key . ' = $ref->' . $refKey . ';', 2, 2);
 		}
 		
-		$c .= "	return parent::$setter(\$ref); \n";
-		$c .= "  } \n";
+		$c .= $this->getFormattedString('  return parent::' . $setter . '($ref);', 2, 2);
+		$c .= $this->getFormattedString('}', 1, 1);
 		
 		return $c;
+	}
+	
+	/**
+	 * Returns the formated line string
+	 * 
+	 * @param string $string
+	 * @param int $identyLevel
+	 * @param int $numNewLines
+	 * @return string
+	 */
+	protected function getFormattedString($string, $identyLevel, $numNewLines)
+	{
+		return str_repeat("\t", $identyLevel) . trim($string) . str_repeat("\n", $numNewLines);
 	}
 }

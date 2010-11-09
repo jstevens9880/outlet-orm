@@ -32,27 +32,27 @@ class OutletManyToManyAssociation extends OutletAssociation
 	protected $tableKeyForeign;
 
 	/**
-	 * @param OutletEntityMap $entity
-	 * @param string $name
-	 * @param string $linkingTable
+	 * @param OutletEntity $entity
 	 * @param string $key
 	 * @param string $refKey
+	 * @param string $linkingTable
 	 * @param string $tableKeyLocal
 	 * @param string $tableKeyForeign
+	 * @param string $name
 	 */
-	public function __construct(OutletEntityMap $entity, $name, $linkingTable, $key, $refKey, $tableKeyLocal, $tableKeyForeign)
+	public function __construct(OutletEntity $entity, $key, $refKey, $linkingTable, $tableKeyLocal, $tableKeyForeign, $name = null)
 	{
-		$this->entity = $entity;
-		$this->name = $name;
-		$this->linkingTable = $linkingTable;
-		$this->key = $key;
-		$this->refKey = $refKey;
-		$this->tableKeyLocal = $tableKeyLocal;
-		$this->tableKeyForeign = $tableKeyForeign;
+		$this->setEntity($entity);
+		$this->setKey($key);
+		$this->setRefKey($refKey);
+		$this->setLinkingTable($linkingTable);
+		$this->setTableKeyLocal($tableKeyLocal);
+		$this->setTableKeyForeign($tableKeyForeign);
+		$this->setName(!is_null($name) ? $name : $entity->getPlural());
 	}
 
 	/**
-	 * @return string
+	 * @return the string
 	 */
 	public function getLinkingTable()
 	{
@@ -60,7 +60,15 @@ class OutletManyToManyAssociation extends OutletAssociation
 	}
 
 	/**
-	 * @return string
+	 * @param string $linkingTable
+	 */
+	public function setLinkingTable($linkingTable)
+	{
+		$this->linkingTable = $linkingTable;
+	}
+
+	/**
+	 * @return the string
 	 */
 	public function getTableKeyLocal()
 	{
@@ -68,10 +76,26 @@ class OutletManyToManyAssociation extends OutletAssociation
 	}
 
 	/**
-	 * @return string
+	 * @param string $tableKeyLocal
+	 */
+	public function setTableKeyLocal($tableKeyLocal)
+	{
+		$this->tableKeyLocal = $tableKeyLocal;
+	}
+
+	/**
+	 * @return the string
 	 */
 	public function getTableKeyForeign()
 	{
 		return $this->tableKeyForeign;
+	}
+
+	/**
+	 * @param string $tableKeyForeign
+	 */
+	public function setTableKeyForeign($tableKeyForeign)
+	{
+		$this->tableKeyForeign = $tableKeyForeign;
 	}
 }

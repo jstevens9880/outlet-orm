@@ -17,7 +17,7 @@
 abstract class OutletAssociation
 {
 	/**
-	 * @var OutletEntityMap
+	 * @var OutletEntity
 	 */
 	protected $entity;
 	
@@ -43,6 +43,62 @@ abstract class OutletAssociation
 	{
 		return $this->name;
 	}
+	
+	/**
+	 * @param string $name
+	 */
+	public function setName($name)
+	{
+		$this->name = $name;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getKey()
+	{
+		return $this->key;
+	}
+	
+	/**
+	 * @param string $key
+	 */
+	public function setKey($key)
+	{
+		$this->key = $key;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getRefKey()
+	{
+		return $this->refKey;
+	}
+	
+	/**
+	 * @param string $refKey
+	 */
+	public function setRefKey($refKey)
+	{
+		$this->refKey = $refKey;
+	}
+
+	/**
+	 * @return OutletEntity
+	 */
+	public function getEntity()
+	{
+		return $this->entity;
+	}
+	
+	/**
+	 * @param OutletEntity $entity
+	 */
+	public function setEntity(OutletEntity $entity)
+	{
+		$this->entity = $entity;
+	}
 
 	/**
 	 * @return string
@@ -63,33 +119,9 @@ abstract class OutletAssociation
 	/**
 	 * @return string
 	 */
-	public function getKey()
-	{
-		return $this->key;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getRefKey()
-	{
-		return $this->refKey;
-	}
-
-	/**
-	 * @return OutletEntityMap
-	 */
-	public function getEntityMap()
-	{
-		return $this->entity;
-	}
-
-	/**
-	 * @return string
-	 */
 	public function __toString()
 	{
-		$s = '  > ' . $this->getName() . ' (' . $this->getType() . ', class=' . $this->getEntityMap()->getClass() . ')' . "\n";
+		$s = '  > ' . $this->getName() . ' (' . $this->getType() . ', class=' . $this->getEntity()->getName() . ')' . "\n";
 
 		return $s;
 	}

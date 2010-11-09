@@ -1,4 +1,19 @@
 <?php
+/**
+ * File level comment
+ * 
+ * @package org.outlet-orm
+ * @subpackage core
+ * @author Alvaro Carrasco
+ */
+
+/**
+ * Outlet main class
+ * 
+ * @package org.outlet-orm
+ * @subpackage core
+ * @author Alvaro Carrasco
+ */
 class Outlet
 {
 	/**
@@ -12,16 +27,6 @@ class Outlet
 	private $config;
 	
 	/**
-	 * @var array
-	 */
-	private $connectionConfig;
-	
-	/**
-	 * @var OutletConnection
-	 */
-	private $con;
-	
-	/**
 	 * @var OutletMapper
 	 */
 	private $mapper;
@@ -31,16 +36,26 @@ class Outlet
 	 * @var array
 	 */
 	private $map = array();
+	
+	/**
+	 * Outlet Connection
+	 *
+	 * @var OutletConnection
+	 */
+	private $connection;
 
 	/**
 	 * Initialize outlet with an array configuration
 	 * 
-	 * @param array $conf configuration
+	 * @param array|string $conf Array configuration, XML file or XML string
 	 */
-	public static function init(array $conf)
+	public static function init($conf)
 	{
-		// instantiate
-		self::$instance = new self($conf);
+		if (is_array($conf)) {
+			self::$instance = new self(OutletConfig::createFromArray($conf));
+		} else {
+			self::$instance = new self(OutletConfig::createFromXml($conf));
+		}
 	}
 
 	/**
@@ -54,131 +69,80 @@ class Outlet
 		
 		return self::$instance;
 	}
-	
+
 	/**
 	 * Just for tests
 	 * 
-	 * @param Outlet $o
+	 * @param Outlet $instance
 	 */
-	public static function setInstance (Outlet $o = null)
+	public static function setInstance(Outlet $instance = null)
 	{
-		self::$instance = $o;
+		self::$instance = $instance;
 	}
-
+	
 	/**
 	 * Constructs a new instance of Outlet
 	 * 
-	 * @param array $conf configuration 
-	 * @return Outlet instance
+	 * @param OutletConfig $config
 	 */
-	public function __construct(array $conf)
+	public function __construct(OutletConfig $config)
 	{
-		self::validateConfig($conf);
-		
-		$this->connectionConfig = $conf['connection'];
-	
-		$this->createMap($conf);
-		
-		/*
-		$this->config = new OutletConfig($conf);
-		$this->con = $this->config->getConnection();
-		*/
-		$this->mapper = new OutletMapper($this->getConnection(), $this->map);
-	}
-	
-	private static function validateConfig ($conf) {
-		if (!isset($conf['connection'])) {
-			throw new OutletConfigException('Element [connection] not found in configuration');
-		}
-		
-		if (!isset($conf['connection']['dsn']) && !isset($conf['connection']['pdo'])) {
-			throw new OutletConfigException('You must set either [connection][pdo] or [connection][dsn] in configuration');
-		}
-		
-		if (!isset($conf['connection']['dialect'])) {
-			throw new OutletConfigException('Element [connection][dialect] not found in configuration');
-		}
-		
-		if (!isset($conf['classes'])) {
-			throw new OutletConfigException('Element [classes] missing in configuration');
-		}
-	}
-	
-	private function createMap ($conf) {
-		// create all of the entity maps
-		foreach ($conf['classes'] as $c => $config) {
-			$props = array();
-			$pks = array();
-			
-			// props
-			foreach ($config['props'] as $name => $prop) {	
-				$props[$name] = new OutletPropMap($name, $prop[0], $prop[1], isset($prop[2]) ? $prop[2] : array() );
-				
-				// pks
-				if (isset($prop[2]) && isset($prop[2]['pk']) && $prop[2]['pk'] == true) $pks[] = $name;
-			}
-
-			// use global useGettersAndSetters if there isn't an entity useGetterAndSetters set
-			$config['useGettersAndSetters'] = isset($config['useGettersAndSetters']) ? $config['useGettersAndSetters'] : (isset($conf['useGettersAndSetters']) ? $conf['useGettersAndSetters'] : false);
-			
-			$this->map[$c] = new OutletEntityMap($c, $config['table'], $props, $pks, $config);
-		}
-		
-		// add the associations
-		foreach ($conf['classes'] as $c => $config) {
-			if (isset($config['associations']))
-			foreach ($config['associations'] as $assoc) {
-				// options
-				$opt = $assoc[2];
-				
-				// entity
-				$en = $this->map[$assoc[1]];
-				
-				// assoc name
-				switch ($assoc[0]) {
-					case 'many-to-one':
-						$name = isset($opt['name']) ? $opt['name'] : $assoc[1];
-						$refKey = isset($opt['refKey']) ? $opt['refKey'] : current($en->getPKs());
-						$optional = isset($opt['optional']) ? $opt['optional'] : false;
-						
-						$a = new OutletManyToOneAssociation($en, $name, $opt['key'], $refKey, $optional);
-						break;
-					case 'one-to-one':
-						$name = isset($opt['name']) ? $opt['name'] : $assoc[1];
-						$refKey = isset($opt['refKey']) ? $opt['refKey'] : current($en->getPKs());
-						$optional = isset($opt['optional']) ? $opt['optional'] : false;
-						
-						$a = new OutletOneToOneAssociation($this->map[$assoc[1]], $name, $assoc[2]['key'], $refKey, $optional);
-						break;
-					case 'one-to-many':
-						$name = isset($opt['plural']) ? $opt['plural'] : (isset($opt['name']) ? $opt['name'].'s' : $en->getPlural());
-						$refKey = isset($opt['refKey']) ? $opt['refKey'] : current($this->map[$c]->getPKs());
-						
-						$a = new OutletOneToManyAssociation($en, $name, $opt['key'], $refKey);
-						break;
-					case 'many-to-many':
-						$name = isset($opt['plural']) ? $opt['plural'] : (isset($opt['name']) ? $opt['name'].'s' : $en->getPlural());
-						$key = isset($opt['key']) ? $opt['key'] : current($en->getPKs());
-						$refKey = isset($opt['refKey']) ? $opt['refKey'] : current($this->map[$c]->getPKs());
-						
-						$a = new OutletManyToManyAssociation($en, $name, $opt['table'], $key, $refKey, $opt['tableKeyLocal'], $opt['tableKeyForeign']);
-						break;
-				}
-				
-				$this->map[$c]->addAssociation($a);
-			}
-		}
+		$this->setConfig($config);
+		$this->mapper = new OutletMapper();
 	}
 	
 	/**
-	 * 
-	 * @param string $class
-	 * @return OutletEntityMap
+	 * @return OutletConfig
 	 */
-	public function getEntityMap ($class) {
-		if (!isset($this->map[$class])) throw new OutletConfigException("Entity [$class] has not been defined in the configuration.");
+	public function getConfig()
+	{
+		return $this->config;
+	}
+	
+	/**
+	 * @param OutletConfig $config
+	 */
+	protected function setConfig(OutletConfig $config)
+	{
+		$this->config = $config;
+	}
+	
+	/**
+	 * Retrieves the connection
+	 * 
+	 * @see OutletConfig::createConnection()
+	 * @return OutletConnection
+	 */
+	public function getConnection()
+	{
+		if (is_null($this->connection)) {
+			$this->setConnection($this->getConfig()->createConnection());
+		}
 		
-		return $this->map[$class];
+		return $this->connection;
+	}
+	
+	/**
+	 * Configures the connection object
+	 * 
+	 * @param OutletConnection $connection
+	 */
+	public function setConnection(OutletConnection $connection)
+	{
+		$this->connection = $connection;
+	}
+
+	/**
+	 * @param string $class
+	 * @return OutletEntity
+	 */
+	public function getEntityMap($class)
+	{
+		if ($entity = $this->getConfig()->getEntity($class)) {
+			return $entity;
+		}
+		
+		throw new OutletConfigException('Entity [' . $class . '] has not been defined in the configuration.');
 	}
 
 	/**
@@ -197,8 +161,9 @@ class Outlet
 		
 		return $return;
 	}
-	
-	public function refresh (&$obj) {
+
+	public function refresh(&$obj)
+	{
 		return $this->mapper->refresh($obj);
 	}
 
@@ -215,7 +180,7 @@ class Outlet
 			$id = array($id);
 		}
 		
-		$pks = $this->map[$clazz]->getPKs();
+		$pks = $this->getEntityMap($clazz)->getPrimaryKeys();
 		
 		$pk_q = array();
 		
@@ -224,7 +189,6 @@ class Outlet
 		}
 		
 		$q = "DELETE FROM {" . "$clazz} WHERE " . implode(' AND ', $pk_q);
-		
 		$q = $this->mapper->processQuery($q);
 		
 		$stmt = $this->getConnection()->prepare($q);
@@ -285,27 +249,18 @@ class Outlet
 	 */
 	public function createProxies()
 	{
-		$gen = $this->getProxyGenerator();
-		$c = $gen->generate();
-		
-		eval($c);
-	
-		$this->attachProxies();	
+		eval($this->getProxyGenerator()->generate());
 	}
 
-	public function attachProxies () {
-		// set outlet
-		$c = '';
+	/**
+	 * Returns the proxy generator
+	 * 
+	 * @return OutletProxyGenerator
+	 */
+	protected function getProxyGenerator()
+	{
+		//TODO refactor using OutletConfig...
 		
-		foreach ($this->map as $en) {
-			$cls = $en->getClass() . '_OutletProxy';
-			$c .= "$cls::\$_outlet = \$this;\n";
-		}
-		
-		eval($c);	
-	}
-
-	public function getProxyGenerator () {
 		return new OutletProxyGenerator($this->map);
 	}
 
@@ -322,47 +277,15 @@ class Outlet
 	}
 
 	/**
-	 * Retrieve the connection
-	 * @see OutletConfig::getConnection()
-	 * @return OutletConnection
-	 */
-	function getConnection()
-	{
-		if (!$this->con) {
-			$conn = $this->connectionConfig;
-						
-			if (isset($conn['pdo'])) {
-				$pdo = $conn['pdo'];
-			} else {
-				$pdo = new PDO($conn['dsn'], @$conn['username'], @$conn['password']);
-				$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-			}
-			
-			$this->con = new OutletConnection($pdo, $conn['dialect']);
-		}
-		return $this->con;
-	}
-
-	/**
-	 * Retrieve the configuration
-	 * @return OutletConfig
-	 */
-	function getConfig()
-	{
-		return $this->config;
-	}
-
-	/**
 	 * Returns last generated ID
-	 *
 	 * If using PostgreSQL the $sequenceName needs to be specified
 	 * 
 	 * @param string $sequenceName sequence name to look for the last insert id in, required for PostgreSQL
-	 * @return int the last insert id
+	 * @return int The last insert id
 	 */
-	function getLastInsertId($sequenceName = '')
+	public function getLastInsertId($sequenceName = '')
 	{
-		return $this->con->lastInsertId($sequenceName);
+		return $this->getConnection()->lastInsertId($sequenceName);
 	}
 
 	/**
@@ -375,23 +298,23 @@ class Outlet
 	 */
 	public function getEntityForRow($clazz, array $row)
 	{
-		$map = $this->map[$clazz];
+		$map = $this->getEntityMap($clazz);
 		
 		// get the pk values in order to check the map		
 		$pkValues = array();
-		foreach ($map->getPKColumns() as $pk) {
-			$pkValues[] = $row[$pk];
+		foreach ($map->getPrimaryKeys() as $pk) {
+			$pkValues[] = $row[$map->getProperty($pk)->getColumn()];
 		}
 		
 		$data = $this->mapper->get($clazz, $pkValues);
-		
-		$proxyclass = "{$clazz}_OutletProxy";
 		
 		if ($data) {
 			return $data['obj'];
 		} else {
 			// TODO: cast values on populateObject
-			$obj = $map->populate(new $proxyclass(), $row);
+			$proxyclass = $clazz . '_OutletProxy';
+			$obj = new $proxyclass();
+			OutletEntityHelper::getInstance()->populateObject($map, $obj, $row);
 			
 			if ($this->mapper->onHydrate) {
 				if (!function_exists($this->mapper->onHydrate)) {
@@ -402,7 +325,7 @@ class Outlet
 			}
 			
 			// add it to the cache
-			$this->mapper->set($clazz, $pkValues, array('obj' => $obj, 'original' => $map->toRow($obj)));
+			$this->mapper->set($clazz, $pkValues, array('obj' => $obj, 'original' => $map->extractValues($obj)));
 			
 			return $obj;
 		}
@@ -425,68 +348,6 @@ class Outlet
 		} else {
 			return null;
 		}
-	}
-
-	/**
-	 * Retrieves the table for an entity class
-	 * @param string $clazz entity class
-	 * @return string table name
-	 */
-	private function getTable($clazz)
-	{
-		return $this->conf['classes'][$clazz]['table'];
-	}
-
-	/**
-	 * Retrieve the fields for an entity class
-	 * @param string $clazz entity class
-	 * @return array properties array
-	 */
-	private function getFields($clazz)
-	{
-		return $this->conf['classes'][$clazz]['props'];
-	}
-
-	/**
-	 * Retrieve the primary key fields
-	 * @see OutletEntityConfig::getPkFields()
-	 * @see OutletEntityConfig::getPkColumns()
-	 * @param string $clazz entity class
-	 * @return array primary key field
-	 */
-	private function getPkFields($clazz)
-	{
-		$fields = $this->conf['classes'][$clazz]['props'];
-		
-		$pks = array();
-		
-		foreach ($fields as $key => $f) {
-			if (isset($f[2]) && isset($f[2]['pk']) && $f[2]['pk']) {
-				$pks[$key] = $f;
-			}
-		}
-		
-		return $pks;
-	}
-
-	/**
-	 * Filters any auto incremented fields out of the fields array
-	 * @param array $fields array of fields
-	 * @return array field array with auto incremented fields filtered out
-	 */
-	private function removeAutoIncrement($fields)
-	{
-		$newArr = array();
-		
-		foreach ($fields as $key => $f) {
-			if (isset($f[2]) && isset($f[2]['autoIncrement']) && $f[2]['autoIncrement']) {
-				// auto incremented fields should be skipped 
-				continue;
-			}
-			$newArr[$key] = $f;
-		}
-		
-		return $newArr;
 	}
 
 	/**
