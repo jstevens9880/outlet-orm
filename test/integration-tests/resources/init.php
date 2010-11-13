@@ -26,5 +26,4 @@ switch (DATABASE_DRIVER) {
 }
 
 Outlet::init($conf);
-Outlet::getInstance()->createProxies();
 Outlet::getInstance()->getConnection()->getPDO()->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

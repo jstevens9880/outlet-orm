@@ -32,12 +32,6 @@ class Outlet
 	private $mapper;
 	
 	/**
-	 * 
-	 * @var array
-	 */
-	private $map = array();
-	
-	/**
 	 * Outlet Connection
 	 *
 	 * @var OutletConnection
@@ -245,23 +239,13 @@ class Outlet
 	 * uses eval to create them. For better performance it's recommented
 	 * that, instead of calling this method, you use the outletgen.php 
 	 * script to generate the proxies and include them directly. This will
-	 * allow byte-code caches to cache the proxies code. 
+	 * allow byte-code caches to cache the proxies code.
 	 */
 	public function createProxies()
 	{
-		eval($this->getProxyGenerator()->generate());
-	}
-
-	/**
-	 * Returns the proxy generator
-	 * 
-	 * @return OutletProxyGenerator
-	 */
-	protected function getProxyGenerator()
-	{
-		//TODO refactor using OutletConfig...
+		$generator = new OutletProxyGenerator();
 		
-		return new OutletProxyGenerator($this->map);
+		eval($generator->generate());
 	}
 
 	/**
@@ -299,9 +283,9 @@ class Outlet
 	public function getEntityForRow($clazz, array $row)
 	{
 		$map = $this->getEntityMap($clazz);
-		
-		// get the pk values in order to check the map		
 		$pkValues = array();
+		
+		// get the pk values in order to check the map
 		foreach ($map->getPrimaryKeys() as $pk) {
 			$pkValues[] = $row[$map->getProperty($pk)->getColumn()];
 		}
@@ -311,9 +295,7 @@ class Outlet
 		if ($data) {
 			return $data['obj'];
 		} else {
-			// TODO: cast values on populateObject
-			$proxyclass = $clazz . '_OutletProxy';
-			$obj = new $proxyclass();
+			$obj = $this->getProxyFactory()->getProxy($clazz);
 			OutletEntityHelper::getInstance()->populateObject($map, $obj, $row);
 			
 			if ($this->mapper->onHydrate) {
@@ -419,5 +401,15 @@ class Outlet
 	public function onHydrate($callback)
 	{
 		$this->mapper->onHydrate = $callback;
+	}
+	
+	/**
+	 * Returns the proxy factory (created for testing)
+	 * 
+	 * @return OutletProxyFactory
+	 */
+	protected function getProxyFactory()
+	{
+		return OutletProxyFactory::getInstance();
 	}
 }

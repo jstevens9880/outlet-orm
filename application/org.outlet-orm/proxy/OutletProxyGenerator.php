@@ -26,7 +26,7 @@ class OutletProxyGenerator
 		$c = '';
 		
 		foreach ($this->getEntityMaps() as $entity) {
-			if (!class_exists($entity->getName() . '_OutletProxy')) {
+			if (!class_exists($this->getProxyName($entity->getName()))) {
 				$c .= $this->generateProxy($entity);
 			}
 		}
@@ -43,7 +43,7 @@ class OutletProxyGenerator
 	 */
 	public function generateProxy(OutletEntity $entity)
 	{
-		$c = $this->getFormattedString('class ' . $entity->getName() . '_OutletProxy extends ' . $entity->getName() . ' implements OutletProxy', 0, 1);
+		$c = $this->getFormattedString('class ' . $this->getProxyName($entity->getName()) . ' extends ' . $entity->getName() . ' implements OutletProxy', 0, 1);
 		$c .= $this->getFormattedString('{', 0, 0);
 		
 		foreach ($entity->getAssociations() as $assoc) {
@@ -72,6 +72,15 @@ class OutletProxyGenerator
 		$c .= $this->getFormattedString('}', 0, 2);
 		
 		return $c;
+	}
+	
+	/**
+	 * @param string $className
+	 * @return string
+	 */
+	protected function getProxyName($className)
+	{
+		return OutletProxyFactory::getInstance()->getProxyName($className);
 	}
 	
 	/**

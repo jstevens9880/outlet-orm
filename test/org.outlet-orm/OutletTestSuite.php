@@ -8,6 +8,7 @@ require_once 'test/org.outlet-orm/database/OutletConnectionTest.php';
 require_once 'test/org.outlet-orm/config/OutletXmlParserTest.php';
 require_once 'test/org.outlet-orm/config/OutletConnectionConfigTest.php';
 require_once 'test/org.outlet-orm/config/OutletConfigTest.php';
+require_once 'test/org.outlet-orm/proxy/OutletProxyFactoryTest.php';
 /**
  * Static test suite.
  */
@@ -25,6 +26,7 @@ class OutletTestSuite extends PHPUnit_Framework_TestSuite
 		$this->addTestSuite('OutletXmlParserTest');
 		$this->addTestSuite('OutletConnectionConfigTest');
 		$this->addTestSuite('OutletConfigTest');
+		$this->addTestSuite('OutletProxyFactoryTest');
 	}
 	/**
 	 * Creates the suite.
