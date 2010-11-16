@@ -1,7 +1,7 @@
 <?php
-require_once 'application\org.outlet-orm\proxy\OutletProxyFactory.php';
-require_once 'application\org.outlet-orm\proxy\OutletProxyGenerator.php';
-require_once 'PHPUnit\Framework\TestCase.php';
+require_once 'application/org.outlet-orm/proxy/OutletProxyFactory.php';
+require_once 'application/org.outlet-orm/proxy/OutletProxyGenerator.php';
+require_once 'PHPUnit/Framework/TestCase.php';
 
 /**
  * OutletProxyFactory test case.
