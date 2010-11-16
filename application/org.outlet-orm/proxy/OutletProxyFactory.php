@@ -101,13 +101,25 @@ class OutletProxyFactory
 	}
 	
 	/**
+	 * Return the entity class of an object as defined in the config
+	 * For example, it will return 'User' when passed an instance of User or User_OutletProxy
+	 * 
+	 * @param string $obj
+	 * @return string
+	 */
+	public function getEntityName($class)
+	{
+		return str_replace('_OutletProxy', '', $class);
+	}
+	
+	/**
 	 * Creates the proxy class
 	 * 
 	 * @param string $class
 	 */
 	protected function createProxyClass($class)
 	{
-		$entity = Outlet::getInstance()->getConfig()->getEntity($class);
+		$entity = Outlet::getInstance()->getConfig()->getEntity($this->getEntityName($class));
 			
 		eval($this->getProxyGenerator()->generateProxy($entity));
 	}
