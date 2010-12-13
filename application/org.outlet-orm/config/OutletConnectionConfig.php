@@ -177,6 +177,7 @@ class OutletConnectionConfig
 	protected function createPdoConnection()
 	{
 		$this->setPdo(new PDO($this->getDsn(), $this->getUserName(), $this->getPassword()));
+		$this->getPdo()->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 	}
 	
 	/**

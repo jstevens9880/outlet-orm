@@ -299,6 +299,10 @@ class OutletEntity
 	 */
 	public function useGettersAndSetters($method)
 	{
+		if (!class_exists($this->getName())) {
+			throw new BadMethodCallException('The class ' . $this->getName() . ' is not loaded!');
+		}
+		
 		if (method_exists($this->getName(), '__call')) {
 			return true;
 		}
