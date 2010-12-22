@@ -1,7 +1,7 @@
 <?php
 /**
  * File level comment
- * 
+ *
  * @package org.outlet-orm
  * @subpackage core
  * @author Alvaro Carrasco
@@ -9,7 +9,7 @@
 
 /**
  * Outlet main class
- * 
+ *
  * @package org.outlet-orm
  * @subpackage core
  * @author Alvaro Carrasco
@@ -20,17 +20,22 @@ class Outlet
 	 * @var Outlet
 	 */
 	private static $instance;
-	
+
 	/**
 	 * @var OutletConfig
 	 */
 	private $config;
-	
+
+	/**
+	 * @var OutletCache
+	 */
+	private $cache;
+
 	/**
 	 * @var OutletMapper
 	 */
 	private $mapper;
-	
+
 	/**
 	 * Outlet Connection
 	 *
@@ -40,7 +45,7 @@ class Outlet
 
 	/**
 	 * Initialize outlet with an array configuration
-	 * 
+	 *
 	 * @param array|string $conf Array configuration, XML file or XML string
 	 */
 	public static function init($conf)
@@ -60,31 +65,32 @@ class Outlet
 		if (!self::$instance) {
 			throw new OutletException('You must first initialize Outlet by calling Outlet::init($conf)');
 		}
-		
+
 		return self::$instance;
 	}
 
 	/**
 	 * Just for tests
-	 * 
+	 *
 	 * @param Outlet $instance
 	 */
 	public static function setInstance(Outlet $instance = null)
 	{
 		self::$instance = $instance;
 	}
-	
+
 	/**
 	 * Constructs a new instance of Outlet
-	 * 
+	 *
 	 * @param OutletConfig $config
 	 */
 	public function __construct(OutletConfig $config)
 	{
 		$this->setConfig($config);
 		$this->mapper = new OutletMapper();
+		$this->cache = new OutletCache();
 	}
-	
+
 	/**
 	 * @return OutletConfig
 	 */
@@ -92,7 +98,7 @@ class Outlet
 	{
 		return $this->config;
 	}
-	
+
 	/**
 	 * @param OutletConfig $config
 	 */
@@ -100,10 +106,10 @@ class Outlet
 	{
 		$this->config = $config;
 	}
-	
+
 	/**
 	 * Retrieves the connection
-	 * 
+	 *
 	 * @see OutletConfig::createConnection()
 	 * @return OutletConnection
 	 */
@@ -112,18 +118,28 @@ class Outlet
 		if (is_null($this->connection)) {
 			$this->setConnection($this->getConfig()->createConnection());
 		}
-		
+
 		return $this->connection;
 	}
-	
+
 	/**
 	 * Configures the connection object
-	 * 
+	 *
 	 * @param OutletConnection $connection
 	 */
 	public function setConnection(OutletConnection $connection)
 	{
 		$this->connection = $connection;
+	}
+
+	/**
+	 * Returns the cache object
+	 *
+	 * @return OutletCache
+	 */
+	public function getCache()
+	{
+		return $this->cache;
 	}
 
 	/**
@@ -135,7 +151,7 @@ class Outlet
 		if ($entity = $this->getConfig()->getEntity($class)) {
 			return $entity;
 		}
-		
+
 		throw new OutletConfigException('Entity [' . $class . '] has not been defined in the configuration.');
 	}
 
@@ -148,11 +164,11 @@ class Outlet
 	public function save(&$obj)
 	{
 		$con = $this->getConnection();
-		
+
 		$con->beginTransaction();
 		$return = $this->mapper->save($obj);
 		$con->commit();
-		
+
 		return $return;
 	}
 
@@ -163,8 +179,8 @@ class Outlet
 
 	/**
 	 * Perform a DELETE statement for the corresponding entity
-	 * 
-	 * @param string $clazz Class of the entity (not the proxy) 
+	 *
+	 * @param string $clazz Class of the entity (not the proxy)
 	 * @param mixed $id Primary key of the entity
 	 * @return bool true if delete succeeded, false otherwise
 	 */
@@ -173,31 +189,30 @@ class Outlet
 		if (!is_array($id)) {
 			$id = array($id);
 		}
-		
+
 		$pks = $this->getEntityMap($clazz)->getPrimaryKeys();
-		
+
 		$pk_q = array();
-		
+
 		foreach ($pks as $pk) {
 			$pk_q[] = '{' . $clazz . '.' . $pk . '} = ?';
 		}
-		
+
 		$q = "DELETE FROM {" . "$clazz} WHERE " . implode(' AND ', $pk_q);
 		$q = $this->mapper->processQuery($q);
-		
+
 		$stmt = $this->getConnection()->prepare($q);
-		
+
 		$res = $stmt->execute($id);
-		
-		// remove from identity map
-		$this->mapper->clear($clazz, $id);
-		
+
+		$this->getCache()->remove($clazz, $id);
+
 		return $res;
 	}
 
 	/**
 	 * Quotes a value to protect against SQL injection attackes
-	 * 
+	 *
 	 * @see OutletConnection::quote($v)
 	 * @param mixed $val value to quote
 	 * @return mixed quoted value
@@ -219,38 +234,40 @@ class Outlet
 	{
 		// select plus criteria
 		$q = "SELECT {" . "$clazz}.* FROM {" . $clazz . "} " . $query;
-		
+
 		$proxyclass = "{$clazz}_OutletProxy";
 		$collection = array();
-		
+
 		$stmt = $this->query($q, $params);
-		
+
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			$collection[] = $this->getEntityForRow($clazz, $row);
 		}
-		
+
 		return $collection;
 	}
 
 	/**
 	 * Generate the proxy classes that will perform the actual work
-	 * 
+	 *
 	 * This method creates a string with the class definitions and then
 	 * uses eval to create them. For better performance it's recommented
-	 * that, instead of calling this method, you use the outletgen.php 
+	 * that, instead of calling this method, you use the outletgen.php
 	 * script to generate the proxies and include them directly. This will
 	 * allow byte-code caches to cache the proxies code.
+	 *
+	 * @deprecated
 	 */
 	public function createProxies()
 	{
 		$generator = new OutletProxyGenerator();
-		
+
 		eval($generator->generate());
 	}
 
 	/**
 	 * Select ONE entity from the database using it's primary key
-	 * 
+	 *
 	 * @param string $cls Class to load
 	 * @param mixed $pk primary key value
 	 * @return object entity of class $cls
@@ -263,7 +280,7 @@ class Outlet
 	/**
 	 * Returns last generated ID
 	 * If using PostgreSQL the $sequenceName needs to be specified
-	 * 
+	 *
 	 * @param string $sequenceName sequence name to look for the last insert id in, required for PostgreSQL
 	 * @return int The last insert id
 	 */
@@ -284,38 +301,41 @@ class Outlet
 	{
 		$map = $this->getEntityMap($clazz);
 		$pkValues = array();
-		
+
 		// get the pk values in order to check the map
 		foreach ($map->getPrimaryKeys() as $pk) {
 			$pkValues[] = $row[$map->getProperty($pk)->getColumn()];
 		}
-		
-		$data = $this->mapper->get($clazz, $pkValues);
-		
+
+		$data = $this->getCache()->retrieve($clazz, $pkValues);
+
 		if ($data) {
 			return $data['obj'];
 		} else {
 			$obj = $this->getProxyFactory()->getProxy($clazz);
 			OutletEntityHelper::getInstance()->populateObject($map, $obj, $row);
-			
+
 			if ($this->mapper->onHydrate) {
 				if (!function_exists($this->mapper->onHydrate)) {
 					throw new OutletException('The function ' . $this->mapper->onHydrate . ' does not exists');
 				}
-				
+
 				call_user_func($this->mapper->onHydrate, $obj);
 			}
-			
-			// add it to the cache
-			$this->mapper->set($clazz, $pkValues, array('obj' => $obj, 'original' => $map->extractValues($obj)));
-			
+
+			$this->getCache()->persist(
+				$clazz,
+				$pkValues,
+				array('obj' => $obj, 'original' => $map->extractValues($obj))
+			);
+
 			return $obj;
 		}
 	}
 
 	/**
 	 * Execute a full select but only return the first result
-	 * 
+	 *
 	 * @param string $clazz entity class
 	 * @param string $query query to filter by
 	 * @param array $params values to replace parameterized values in $query
@@ -324,7 +344,7 @@ class Outlet
 	public function selectOne($clazz, $query = '', $params = array())
 	{
 		$res = $this->select($clazz, $query, $params);
-		
+
 		if (count($res)) {
 			return $res[0];
 		} else {
@@ -338,7 +358,7 @@ class Outlet
 	 */
 	public function clearCache()
 	{
-		$this->mapper->clearCache();
+		$this->getCache()->clearCache();
 	}
 
 	/**
@@ -351,23 +371,23 @@ class Outlet
 	{
 		// process the query
 		$q = $this->mapper->processQuery($query);
-		
+
 		$stmt = $this->getConnection()->prepare($q);
 		$stmt->execute($params);
-		
+
 		return $stmt;
 	}
 
 	/**
 	 * Parse a query containing outlet entities and return a PDOStatement (not executed)
-	 * 
+	 *
 	 * @param string $query
 	 * @return PDOStatement
 	 */
 	public function prepare($query)
 	{
 		$q = $this->mapper->processQuery($query);
-		
+
 		return $this->getConnection()->prepare($q);
 	}
 
@@ -380,7 +400,7 @@ class Outlet
 	{
 		$q = new OutletQuery();
 		$q->from($from);
-		
+
 		return $q;
 	}
 
@@ -395,17 +415,17 @@ class Outlet
 
 	/**
 	 * Sets onHydrate method
-	 * 
+	 *
 	 * @param string $callback Callback function
 	 */
 	public function onHydrate($callback)
 	{
 		$this->mapper->onHydrate = $callback;
 	}
-	
+
 	/**
 	 * Returns the proxy factory (created for testing)
-	 * 
+	 *
 	 * @return OutletProxyFactory
 	 */
 	protected function getProxyFactory()
