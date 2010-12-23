@@ -1,6 +1,7 @@
 <?php
 require_once 'application/org.outlet-orm/config/OutletConnectionConfig.php';
 require_once 'application/org.outlet-orm/config/OutletConfig.php';
+require_once 'application/org.outlet-orm/config/OutletConfigParser.php';
 require_once 'application/org.outlet-orm/entity/OutletEntity.php';
 require_once 'PHPUnit/Framework/TestCase.php';
 
@@ -10,15 +11,27 @@ require_once 'PHPUnit/Framework/TestCase.php';
 class OutletConfigTest extends PHPUnit_Framework_TestCase
 {
 	/**
+	 * @return object
+	 */
+	protected function getParserMock()
+	{
+		return $this->getMock(
+			'OutletConfigParser',
+			array('createConnectionConfig', 'createEntityConfig', 'createEmbeddableEntityConfig', 'entityExists', 'getConfig')
+		);
+	}
+
+	/**
 	 * Tests OutletConfig->setConnectionConfig()
 	 */
 	public function testSetConnectionConfig()
 	{
 		$con = $this->getMock('OutletConnectionConfig', array(), array(), '', false);
-		$config = new OutletConfig();
-		
+		$parser = $this->getParserMock();
+		$config = new OutletConfig($parser);
+
 		$config->setConnectionConfig($con);
-		
+
 		$this->assertEquals($con, $config->getConnectionConfig());
 	}
 
@@ -28,17 +41,18 @@ class OutletConfigTest extends PHPUnit_Framework_TestCase
 	public function testCreateConnection()
 	{
 		$con = $this->getMock('OutletConnectionConfig', array('createOutletConnection'), array(), '', false);
+		$parser = $this->getParserMock();
 		$connection = $this->getMock('OutletConnection', array(), array(), '', false);
-		$config = $this->getMock('OutletConfig', array('getConnectionConfig'));
-		
+		$config = $this->getMock('OutletConfig', array('getConnectionConfig'), array($parser));
+
 		$config->expects($this->once())
 			   ->method('getConnectionConfig')
 			   ->will($this->returnValue($con));
-			   
+
 		$con->expects($this->once())
 			->method('createOutletConnection')
 			->will($this->returnValue($connection));
-			
+
 		$this->assertEquals($connection, $config->createConnection());
 	}
 
@@ -47,13 +61,11 @@ class OutletConfigTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testSetEntities()
 	{
-		$entities = new ArrayObject();
-		$config = new OutletConfig();
-		
-		$config->setEntities($entities);
-		$entities->append('teste');
-		
-		$this->assertEquals($entities, $config->getEntities());
+		$parser = $this->getParserMock();
+		$config = new OutletConfig($parser);
+		$config->setEntities(array());
+
+		$this->assertEquals(array(), $config->getEntities());
 	}
 
 	/**
@@ -61,14 +73,13 @@ class OutletConfigTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testAddEntity()
 	{
-		$config = new OutletConfig();
-		$entities = new ArrayObject();
+		$parser = $this->getParserMock();
+		$config = new OutletConfig($parser);
 		$entity = new OutletEntity('Test', 'test');
-		
-		$entities->offsetSet('Test', $entity);
+
 		$config->addEntity($entity);
-		
-		$this->assertEquals($entities, $config->getEntities());
+
+		$this->assertEquals(array('Test' => $entity), $config->getEntities());
 	}
 
 	/**
@@ -76,11 +87,12 @@ class OutletConfigTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testGetEntity()
 	{
-		$config = new OutletConfig();
+		$parser = $this->getParserMock();
+		$config = new OutletConfig($parser);
 		$entity = new OutletEntity('Test', 'test');
 
 		$config->addEntity($entity);
-		
+
 		$this->assertEquals($entity, $config->getEntity('Test'));
 		$this->assertEquals(null, $config->getEntity('Test2'));
 	}

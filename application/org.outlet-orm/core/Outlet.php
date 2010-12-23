@@ -22,7 +22,7 @@ class Outlet
 	private static $instance;
 
 	/**
-	 * @var OutletConfig
+	 * @var array
 	 */
 	private $config;
 
@@ -47,13 +47,25 @@ class Outlet
 	 * Initialize outlet with an array configuration
 	 *
 	 * @param array|string $conf Array configuration, XML file or XML string
+	 * @deprecated
 	 */
 	public static function init($conf)
 	{
-		if (is_array($conf)) {
-			self::$instance = new self(OutletConfig::createFromArray($conf));
+		self::addConfig($conf);
+	}
+
+	/**
+	 * Add to Outlet an array or XML configuration
+	 *
+	 * @param array|string $config Array configuration, XML file or XML string
+	 */
+	public static function addConfig($config)
+	{
+		//TODO implement annotations config
+		if (is_array($config)) {
+			self::$instance = new self(OutletConfig::createFromArray($config));
 		} else {
-			self::$instance = new self(OutletConfig::createFromXml($conf));
+			self::$instance = new self(OutletConfig::createFromXml($config));
 		}
 	}
 
@@ -92,11 +104,11 @@ class Outlet
 	}
 
 	/**
-	 * @return OutletConfig
+	 * @return array
 	 */
 	public function getConfig()
 	{
-		return $this->config;
+		return $this->config[0];
 	}
 
 	/**
@@ -104,7 +116,11 @@ class Outlet
 	 */
 	protected function setConfig(OutletConfig $config)
 	{
-		$this->config = $config;
+		if (is_null($this->config)) {
+			$this->config = array();
+		}
+
+		$this->config[] = $config;
 	}
 
 	/**
@@ -223,31 +239,6 @@ class Outlet
 	}
 
 	/**
-	 * Select entities from the database.
-	 *
-	 * @param string $clazz Name of the class as mapped on the configuration
-	 * @param string $query Optional query to execute as a prepared statement
-	 * @param string $params Optional parameters to bind to the query
-	 * @return array Collection returned by the query
-	 */
-	public function select($clazz, $query = '', $params = array())
-	{
-		// select plus criteria
-		$q = "SELECT {" . "$clazz}.* FROM {" . $clazz . "} " . $query;
-
-		$proxyclass = "{$clazz}_OutletProxy";
-		$collection = array();
-
-		$stmt = $this->query($q, $params);
-
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			$collection[] = $this->getEntityForRow($clazz, $row);
-		}
-
-		return $collection;
-	}
-
-	/**
 	 * Generate the proxy classes that will perform the actual work
 	 *
 	 * This method creates a string with the class definitions and then
@@ -334,26 +325,62 @@ class Outlet
 	}
 
 	/**
+	 * Create an OutletQuery selecting from an entity table
+	 * @param string $from entity table to select from
+	 * @return OutletQuery unexecuted
+	 */
+	public function from($from)
+	{
+		$q = new OutletQuery();
+		$q->from($from);
+
+		return $q;
+	}
+
+	protected function getQueryWithCriteria($entityName, $criteria = '', $params = array())
+	{
+		$query = $this->from($entityName);
+
+		if (strlen($criteria) > 0) {
+			$query->where(trim(str_ireplace('where', '', $criteria)), $params);
+		}
+
+		return $query;
+	}
+
+	/**
+	 * Select entities from the database.
+	 *
+	 * @param string $entityName Name of the class as mapped on the configuration
+	 * @param string $criteria Optional query to execute as a prepared statement
+	 * @param string $params Optional parameters to bind to the query
+	 * @return array Collection returned by the query
+	 */
+	public function select($entityName, $criteria = '', $params = array())
+	{
+		$query = $this->getQueryWithCriteria($entityName, $criteria, $params);
+
+		return $query->find();
+	}
+
+	/**
 	 * Execute a full select but only return the first result
 	 *
-	 * @param string $clazz entity class
-	 * @param string $query query to filter by
+	 * @param string $entityName entity class
+	 * @param string $criteria query to filter by
 	 * @param array $params values to replace parameterized values in $query
 	 * @return mixed first result row, null if no results are returned
 	 */
-	public function selectOne($clazz, $query = '', $params = array())
+	public function selectOne($entityName, $criteria = '', $params = array())
 	{
-		$res = $this->select($clazz, $query, $params);
+		$query = $this->getQueryWithCriteria($entityName, $criteria, $params);
 
-		if (count($res)) {
-			return $res[0];
-		} else {
-			return null;
-		}
+		return $query->findOne();
 	}
 
 	/**
 	 * Clears the mappers cache
+	 *
 	 * @see OutletMapper::clearCache()
 	 */
 	public function clearCache()
@@ -363,6 +390,7 @@ class Outlet
 
 	/**
 	 * Executes a query
+	 *
 	 * @param string $query query to execute
 	 * @param array $params values to replace parameterized placeholders with
 	 * @return PDOStatement statement that was executed
@@ -389,19 +417,6 @@ class Outlet
 		$q = $this->mapper->processQuery($query);
 
 		return $this->getConnection()->prepare($q);
-	}
-
-	/**
-	 * Create an OutletQuery selecting from an entity table
-	 * @param string $from entity table to select from
-	 * @return OutletQuery unexecuted
-	 */
-	public function from($from)
-	{
-		$q = new OutletQuery();
-		$q->from($from);
-
-		return $q;
 	}
 
 	/**

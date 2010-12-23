@@ -38,6 +38,7 @@
 		    <fileset dir="${project.basedir}/test">
 		      <include name="integration-tests/OutletIntegrationTestSuite.php"/>
 		      <include name="org.outlet-orm/OutletTestSuite.php"/>
+		      <include name="org.outlet-orm.config.parsers/OutletConfigParsersTestSuite.php"/>
 		    </fileset>
 		  </batchtest>
 		</phpunit>

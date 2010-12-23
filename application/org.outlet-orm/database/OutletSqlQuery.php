@@ -76,7 +76,7 @@ class OutletSqlQuery
 	{
 		return "
 			SELECT " . implode(",\n", $this->select_fields) . "
-			FROM " . $this->from . " 
+			FROM " . $this->from . "  
 			" . implode("\n", $this->joins) . "
 			" . $this->where . "
 			" . $this->groupBy . "

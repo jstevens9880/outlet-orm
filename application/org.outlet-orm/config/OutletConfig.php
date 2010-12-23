@@ -1,15 +1,15 @@
 <?php
 /**
  * Contains the class to configure Outlet
- * 
+ *
  * @package org.outlet-orm
  * @subpackage config
  * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
  */
 
 /**
- * Class that configures entities and connection 
- * 
+ * Class that configures entities and connection
+ *
  * @package org.outlet-orm
  * @subpackage config
  * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
@@ -17,64 +17,82 @@
 class OutletConfig
 {
 	/**
+	 * Current config parser
+	 *
+	 * @var OutletConfigParser
+	 */
+	private $parser;
+
+	/**
 	 * Connection configuration
-	 * 
+	 *
 	 * @var OutletConnectionConfig
 	 */
 	private $connectionConfig;
-	
+
 	/**
 	 * Entities config list
-	 * 
-	 * @var ArrayObject
+	 *
+	 * @var array
 	 */
 	private $entities;
-	
+
 	/**
 	 * Create an OutletConfig object from an array
-	 * 
+	 *
 	 * @param array $config
 	 * @return OutletConfig
 	 */
 	public static function createFromArray(array $config)
 	{
-		$parser = new OutletArrayParser();
-		
-		return $parser->parse($config);
+		$parser = new OutletArrayParser($config);
+
+		return $parser->getConfig();
 	}
-	
+
 	/**
 	 * Create an OutletConfig objet from a XML file or XML string
-	 * 
+	 *
 	 * @param string $xml
 	 * @return OutletConfig
 	 */
 	public static function createFromXml($xml)
 	{
-		$parser = new OutletXmlParser();
-		
-		if (file_exists($xml)) {
-			$config = $parser->parseFromFile($xml);
-		} else {
-			$config = $parser->parseFromString($xml);
-		}
-		
-		return $config;
+		$parser = new OutletXmlParser($xml);
+
+		return $parser->getConfig();
 	}
-	
+
 	/**
 	 * Initializes OutletConfig::$entities
+	 *
+	 * @param OutletConfigParser $parser
 	 */
-	public function __construct()
+	public function __construct(OutletConfigParser $parser)
 	{
-		$this->setEntities(new ArrayObject());
+		$this->setEntities(array());
+		$this->parser = $parser;
 	}
-	
+
+	/**
+	 * Returns the current parser
+	 *
+	 * @return OutletConfigParser
+	 */
+	protected function getParser()
+	{
+		return $this->parser;
+	}
+
 	/**
 	 * @return OutletConnectionConfig
 	 */
 	public function getConnectionConfig()
 	{
+		if (is_null($this->connectionConfig)) {
+			$this->getParser()->createConnectionConfig();
+		}
+
 		return $this->connectionConfig;
 	}
 
@@ -85,10 +103,10 @@ class OutletConfig
 	{
 		$this->connectionConfig = $connectionConfig;
 	}
-	
+
 	/**
 	 * Creates a new connection based on configuration
-	 * 
+	 *
 	 * @see getConnectionConfig::createOutletConnection()
 	 * @return OutletConnection
 	 */
@@ -96,9 +114,9 @@ class OutletConfig
 	{
 		return $this->getConnectionConfig()->createOutletConnection();
 	}
-	
+
 	/**
-	 * @return ArrayObject
+	 * @return array
 	 */
 	public function getEntities()
 	{
@@ -106,35 +124,48 @@ class OutletConfig
 	}
 
 	/**
-	 * @param ArrayObject $entities
+	 * @param array $entities
 	 */
-	public function setEntities(ArrayObject $entities)
+	public function setEntities(array $entities)
 	{
 		$this->entities = $entities;
 	}
-	
+
 	/**
 	 * Append an entity into entities list
-	 * 
+	 *
 	 * @param OutletEntity $entity
 	 */
 	public function addEntity(OutletEntity $entity)
 	{
-		$this->getEntities()->offsetSet($entity->getName(), $entity);
+		$this->entities[$entity->getName()] = $entity;
 	}
-	
+
 	/**
 	 * Get an entity configuration by the name
-	 * 
+	 *
 	 * @param string $name
 	 * @return OutletEntity
 	 */
 	public function getEntity($name)
 	{
-		if ($this->getEntities()->offsetExists($name)) {
-			return $this->getEntities()->offsetGet($name);
+		$this->getParser()->createEntityConfig($name);
+
+		if ($this->entityExists($name)) {
+			return $this->entities[$name];
 		}
-		
+
 		return null;
+	}
+
+	/**
+	 * Returns if the entity exists
+	 *
+	 * @param string $name
+	 * @return boolean
+	 */
+	public function entityExists($name)
+	{
+		return isset($this->entities[$name]);
 	}
 }

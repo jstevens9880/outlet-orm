@@ -17,6 +17,11 @@
 class OutletAutoloader
 {
 	/**
+	 * @var array
+	 */
+	private $directories;
+
+	/**
 	 * Search and include the class
 	 *
 	 * @param string $class
@@ -77,20 +82,25 @@ class OutletAutoloader
 	 */
 	protected function getDirectories()
 	{
-		$mainDir = realpath(dirname(__FILE__) . '/../') . '/';
-		$utilsDir = realpath(dirname(__FILE__) . '/../../org.outlet-orm.utils/') . '/';
-		$dir = new ArrayObject();
+		if (is_null($this->directories)) {
+			$mainDir = realpath(dirname(__FILE__) . '/../') . '/';
+			$utilsDir = realpath(dirname(__FILE__) . '/../../org.outlet-orm.utils/') . '/';
+			$parsersDir = realpath(dirname(__FILE__) . '/../../org.outlet-orm.config.parsers/') . '/';
 
-		$dir->append($mainDir . 'association/');
-		$dir->append($mainDir . 'config/');
-		$dir->append($mainDir . 'core/');
-		$dir->append($mainDir . 'database/');
-		$dir->append($mainDir . 'entity/');
-		$dir->append($mainDir . 'map/');
-		$dir->append($mainDir . 'proxy/');
-		$dir->append($utilsDir . 'nestedset/');
-		$dir->append($utilsDir . 'pagination/');
+			$this->directories = array();
+			$this->directories[] = $mainDir . 'association/';
+			$this->directories[] = $mainDir . 'config/';
+			$this->directories[] = $mainDir . 'core/';
+			$this->directories[] = $mainDir . 'database/';
+			$this->directories[] = $mainDir . 'entity/';
+			$this->directories[] = $mainDir . 'map/';
+			$this->directories[] = $mainDir . 'proxy/';
+			$this->directories[] = $parsersDir . 'xml/';
+			$this->directories[] = $parsersDir . 'array/';
+			$this->directories[] = $utilsDir . 'nestedset/';
+			$this->directories[] = $utilsDir . 'pagination/';
+		}
 
-		return $dir;
+		return $this->directories;
 	}
 }
