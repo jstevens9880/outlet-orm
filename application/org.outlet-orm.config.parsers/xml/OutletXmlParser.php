@@ -212,7 +212,7 @@ class OutletXmlParser implements OutletConfigParser
 	 * @param SimpleXMLElement $class
 	 * @return OutletEntity
 	 */
-	public function parseClass(SimpleXMLElement $class)
+	protected function parseClass(SimpleXMLElement $class)
 	{
 		$entity = new OutletEntity(
 			$this->getNodeAttrValue($class, 'name'),
@@ -238,7 +238,7 @@ class OutletXmlParser implements OutletConfigParser
 	 * @param SimpleXMLElement $prop
 	 * @return OutletEntityProperty
 	 */
-	public function parseProperty(SimpleXMLElement $prop)
+	protected function parseProperty(SimpleXMLElement $prop)
 	{
 		$property = new OutletEntityProperty(
 			$this->getNodeAttrValue($prop, 'name'),
@@ -270,7 +270,7 @@ class OutletXmlParser implements OutletConfigParser
 	 * @param OutletEntity $entity
 	 * @param SimpleXMLElement $class
 	 */
-	public function parseAssociations(OutletEntity $entity, SimpleXMLElement $class)
+	protected function parseAssociations(OutletEntity $entity, SimpleXMLElement $class)
 	{
 		foreach ($class->association as $association) {
 			$relatedEntity = $this->getConfig()->getEntity($this->getNodeAttrValue($association, 'classReference'));
@@ -282,23 +282,58 @@ class OutletXmlParser implements OutletConfigParser
 	/**
 	 * @param OutletEntity $entity
 	 * @param OutletEntity $relatedEntity
-	 * @param SimpleXMLElement $association
+	 * @param SimpleXMLElement $assoc
 	 * @return OutletAssociation
-	 * @throws OutletXmlParserException
 	 */
-	public function parseAssociation(OutletEntity $entity, OutletEntity $relatedEntity, SimpleXMLElement $association)
+	protected function parseAssociation(OutletEntity $entity, OutletEntity $relatedEntity, SimpleXMLElement $assoc)
 	{
-		$this->validateAssociationConfig($association);
+		$this->validateAssociationConfig($assoc);
+		$association = $this->getAssociation($entity, $relatedEntity, $assoc);
 
-		switch ($this->getNodeAttrValue($association, 'type')) {
+		if (!$association instanceof OutletManyToManyAssociation) {
+			if ($name = $this->getNodeAttrValue($assoc, 'name')) {
+				$association->setName($name);
+			}
+		}
+
+		if ($association instanceof OutletManyToManyAssociation || $association instanceof OutletOneToManyAssociation) {
+			if ($plural = $this->getNodeAttrValue($assoc, 'plural')) {
+				$association->setName($plural);
+			}
+		} else {
+			if ($optional = $this->getNodeAttrValue($assoc, 'optional')) {
+				$association->setOptional($optional == 'true');
+			}
+		}
+
+		return $association;
+	}
+
+	/**
+	 * Returns the association
+	 *
+	 * @param OutletEntity $entity
+	 * @param OutletEntity $relatedEntity
+	 * @param SimpleXMLElement $assoc
+	 * @return OutletManyToOneAssociation|OutletManyToManyAssociation|OutletOneToOneAssociation|OutletOneToManyAssociation
+	 */
+	protected function getAssociation(OutletEntity $entity, OutletEntity $relatedEntity, SimpleXMLElement $assoc)
+	{
+		$type = $this->getNodeAttrValue($assoc, 'type');
+
+		switch ($type) {
 			case 'many-to-one':
-				return $this->createManyToOneAssociation($relatedEntity, $association);
+				return new OutletManyToOneAssociation($relatedEntity, $this->getNodeAttrValue($assoc, 'key'), $relatedEntity->getMainPrimaryKey());
 			case 'many-to-many':
-				return $this->createManyToManyAssociation($entity, $relatedEntity, $association);
+				return new OutletManyToManyAssociation(
+					$relatedEntity, $relatedEntity->getMainPrimaryKey(),
+					$entity->getMainPrimaryKey(), $this->getNodeAttrValue($assoc, 'table'),
+					$this->getNodeAttrValue($assoc, 'tableKeyLocal'), $this->getNodeAttrValue($assoc, 'tableKeyForeign')
+				);
 			case 'one-to-one':
-				return $this->createOneToOneAssociation($relatedEntity, $association);
+				return new OutletOneToOneAssociation($relatedEntity, $this->getNodeAttrValue($assoc, 'key'), $relatedEntity->getMainPrimaryKey());
 			case 'one-to-many':
-				return $this->createOneToManyAssociation($entity, $relatedEntity, $association);
+				return new OutletOneToManyAssociation($relatedEntity, $this->getNodeAttrValue($assoc, 'key'), $entity->getMainPrimaryKey());
 		}
 	}
 
@@ -308,21 +343,14 @@ class OutletXmlParser implements OutletConfigParser
 	 * @param SimpleXMLElement $assoc
 	 * @throws OutletXmlParserException
 	 */
-	public function validateAssociationConfig(SimpleXMLElement $assoc)
+	protected function validateAssociationConfig(SimpleXMLElement $assoc)
 	{
 		$type = $this->getNodeAttrValue($assoc, 'type');
 		$key = $this->getNodeAttrValue($assoc, 'key');
-		$table = $this->getNodeAttrValue($assoc, 'table');
 		$name = $this->getNodeAttrValue($assoc, 'name');
-		$tableKeyLocal = $this->getNodeAttrValue($assoc, 'tableKeyLocal');
-		$tableKeyForeign = $this->getNodeAttrValue($assoc, 'tableKeyForeign');
 
-		if ($type == 'many-to-many') {
-			if ($key || $name || !$table || !$tableKeyLocal || !$tableKeyForeign) {
-				throw new OutletXmlParserException('The ' . $type . ' association must have only "table", "tableKeyLocal", "tableKeyForeign" or "plural" attributes');
-			}
-		} else {
-			if ($table || $tableKeyLocal || $tableKeyForeign) {
+		if ($type != 'many-to-many') {
+			if ($this->hasAnyManyToManyParams($assoc)) {
 				throw new OutletXmlParserException('The "table", "tableKeyLocal" or "tableKeyForeign" attributes are prohibited in the ' . $type . ' association');
 			}
 
@@ -334,117 +362,40 @@ class OutletXmlParser implements OutletConfigParser
 				if ($this->getNodeAttrValue($assoc, 'plural')) {
 					throw new OutletXmlParserException('The "plural" attribute is prohibited in the ' . $type . ' association');
 				}
-			} else {
-				if ($this->getNodeAttrValue($assoc, 'optional')) {
-					throw new OutletXmlParserException('The "optional" attribute is prohibited in the ' . $type . ' association');
-				}
+			} elseif ($this->getNodeAttrValue($assoc, 'optional')) {
+				throw new OutletXmlParserException('The "optional" attribute is prohibited in the ' . $type . ' association');
 			}
+		} elseif ($key || $name || !$this->hasAllManyToManyParams($assoc)) {
+			throw new OutletXmlParserException('The ' . $type . ' association must have only "table", "tableKeyLocal", "tableKeyForeign" or "plural" attributes');
 		}
 	}
 
 	/**
-	 * Create a many-to-one association based on entity config
+	 * Returs if the association has all of the many to many params
 	 *
-	 * @param OutletEntity $relatedEntity
-	 * @param SimpleXMLElement $association
-	 * @return OutletManyToOneAssociation
-	 * @throws OutletXmlParserException
+	 * @return boolean
 	 */
-	public function createManyToOneAssociation(OutletEntity $relatedEntity, SimpleXMLElement $assoc)
+	protected function hasAllManyToManyParams(SimpleXMLElement $assoc)
 	{
-		$association = new OutletManyToOneAssociation($relatedEntity, $this->getNodeAttrValue($assoc, 'key'), $relatedEntity->getMainPrimaryKey());
+		$table = $this->getNodeAttrValue($assoc, 'table');
+		$tableKeyLocal = $this->getNodeAttrValue($assoc, 'tableKeyLocal');
+		$tableKeyForeign = $this->getNodeAttrValue($assoc, 'tableKeyForeign');
 
-		if ($name = $this->getNodeAttrValue($assoc, 'name')) {
-			$association->setName($name);
-		}
-
-		if ($optional = $this->getNodeAttrValue($assoc, 'optional')) {
-			$association->setOptional($optional == 'true');
-		}
-
-		return $association;
+		return $table && $tableKeyLocal && $tableKeyForeign;
 	}
 
 	/**
-	 * Create a many-to-many association based on entity config
+	 * Returs if the association has one of the many to many params
 	 *
-	 * @param OutletEntity $entity
-	 * @param OutletEntity $relatedEntity
-	 * @param SimpleXMLElement $association
-	 * @return OutletManyToManyAssociation
-	 * @throws OutletXmlParserException
+	 * @return boolean
 	 */
-	public function createManyToManyAssociation(OutletEntity $entity, OutletEntity $relatedEntity, SimpleXMLElement $assoc)
+	protected function hasAnyManyToManyParams(SimpleXMLElement $assoc)
 	{
-		$association = new OutletManyToManyAssociation(
-			$relatedEntity,
-			$relatedEntity->getMainPrimaryKey(),
-			$entity->getMainPrimaryKey(),
-			$this->getNodeAttrValue($assoc, 'table'),
-			$this->getNodeAttrValue($assoc, 'tableKeyLocal'),
-			$this->getNodeAttrValue($assoc, 'tableKeyForeign')
-		);
+		$table = $this->getNodeAttrValue($assoc, 'table');
+		$tableKeyLocal = $this->getNodeAttrValue($assoc, 'tableKeyLocal');
+		$tableKeyForeign = $this->getNodeAttrValue($assoc, 'tableKeyForeign');
 
-		if ($plural = $this->getNodeAttrValue($assoc, 'plural')) {
-			$association->setName($plural);
-		}
-
-		return $association;
-	}
-
-	/**
-	 * Create a one-to-one association based on entity config
-	 *
-	 * @param OutletEntity $relatedEntity
-	 * @param SimpleXMLElement $association
-	 * @return OutletOneToOneAssociation
-	 * @throws OutletXmlParserException
-	 */
-	public function createOneToOneAssociation(OutletEntity $relatedEntity, SimpleXMLElement $assoc)
-	{
-		$association = new OutletOneToOneAssociation(
-			$relatedEntity,
-			$this->getNodeAttrValue($assoc, 'key'),
-			$relatedEntity->getMainPrimaryKey()
-		);
-
-		if ($name = $this->getNodeAttrValue($assoc, 'name')) {
-			$association->setName($name);
-		}
-
-		if ($optional = $this->getNodeAttrValue($assoc, 'optional')) {
-			$association->setOptional($optional == 'true');
-		}
-
-		return $association;
-	}
-
-	/**
-	 * Create a one-to-many association based on entity config
-	 *
-	 * @param OutletEntity $entity
-	 * @param OutletEntity $relatedEntity
-	 * @param SimpleXMLElement $association
-	 * @return OutletOneToManyAssociation
-	 * @throws OutletXmlParserException
-	 */
-	public function createOneToManyAssociation(OutletEntity $entity, OutletEntity $relatedEntity, SimpleXMLElement $assoc)
-	{
-		$association = new OutletOneToManyAssociation(
-			$relatedEntity,
-			$this->getNodeAttrValue($assoc, 'key'),
-			$entity->getMainPrimaryKey()
-		);
-
-		if ($name = $this->getNodeAttrValue($assoc, 'name')) {
-			$association->setName($name);
-		}
-
-		if ($plural = $this->getNodeAttrValue($assoc, 'plural')) {
-			$association->setName($plural);
-		}
-
-		return $association;
+		return $table || $tableKeyLocal || $tableKeyForeign;
 	}
 
 	/**

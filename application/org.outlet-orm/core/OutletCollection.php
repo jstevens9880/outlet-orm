@@ -1,7 +1,7 @@
 <?php
 /**
  * File level comment
- * 
+ *
  * @package org.outlet-orm
  * @subpackage core
  * @author Alvaro Carrasco
@@ -9,7 +9,7 @@
 
 /**
  * OutletCollection is a lazy-load specialized Collection containing the results of a query
- * 
+ *
  * @package org.outlet-orm
  * @subpackage core
  * @author Alvaro Carrasco
@@ -17,15 +17,15 @@
 class OutletCollection extends Collection
 {
 	/**
-	 * @var OutletQuery
+	 * @var OutletSelectQuery
 	 */
 	private $q;
-	
+
 	/**
 	 * @var bool
 	 */
 	private $loaded;
-	
+
 	/**
 	 * @var bool
 	 */
@@ -33,11 +33,11 @@ class OutletCollection extends Collection
 
 	/**
 	 * Constructs a new instance of OutletCollection
-	 * 
-	 * @param OutletQuery $q query
+	 *
+	 * @param OutletSelectQuery $q query
 	 * @return OutletCollection instance
 	 */
-	public function __construct(OutletQuery $q)
+	public function __construct(OutletSelectQuery $q)
 	{
 		$this->q = $q;
 		$this->loaded = false;
@@ -46,8 +46,8 @@ class OutletCollection extends Collection
 
 	/**
 	 * Retrieves the query the OutletCollection wraps
-	 * 
-	 * @return OutletQuery query
+	 *
+	 * @return OutletSelectQuery query
 	 */
 	public function getQuery()
 	{
@@ -56,19 +56,19 @@ class OutletCollection extends Collection
 
 	/**
 	 * Load the collection if necessary and return an Iterator
-	 * 
+	 *
 	 * @return ArrayIterator
 	 */
 	public function getIterator()
 	{
 		$this->load();
-		
+
 		return parent::getIterator();
 	}
 
 	/**
 	 * Get the iterator without loading remote values
-	 * 
+	 *
 	 * @return ArrayIterator
 	 */
 	public function getLocalIterator()
@@ -90,13 +90,13 @@ class OutletCollection extends Collection
 
 	/**
 	 * Retrieves the query results as a native php array
-	 * 
+	 *
 	 * @return array query results
 	 */
 	public function toArray()
 	{
 		$this->load();
-		
+
 		return parent::toArray();
 	}
 
@@ -107,14 +107,14 @@ class OutletCollection extends Collection
 	{
 		$this->removeAll = true;
 		$this->loaded = false;
-		
+
 		parent::removeAll();
 	}
 
 	/**
 	 * Retrieve the remove all flag
-	 * 
-	 * @return bool remove all flag 
+	 *
+	 * @return bool remove all flag
 	 */
 	public function isRemoveAll()
 	{
@@ -123,25 +123,25 @@ class OutletCollection extends Collection
 
 	/**
 	 * Retrieve the number of objects in the collection
-	 * 
+	 *
 	 * @return int number of objects in the collection
 	 */
 	public function count()
 	{
 		$this->load();
-		
+
 		return parent::count();
 	}
 
 	/**
 	 * Returns the element located in the specified index
-	 * 
+	 *
 	 * @param int $index
 	 */
 	public function offsetGet($index)
 	{
 		$this->load();
-		
+
 		return parent::offsetExists($index) ? parent::offsetGet($index) : null;
 	}
 }

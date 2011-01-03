@@ -47,21 +47,21 @@ class OutletProxyGenerator
 		$c .= $this->getFormattedString('{', 0, 0);
 
 		foreach ($entity->getAssociations() as $assoc) {
-			switch ($assoc->getType()) {
-				case 'one-to-many':
+			switch (get_class($assoc)) {
+				case 'OutletOneToManyAssociation':
 					$c .= $this->createOneToManyFunctions($entity, $assoc);
 					break;
-				case 'many-to-one':
+				case 'OutletManyToOneAssociation':
 					$c .= $this->createManyToOneFunctions($entity, $assoc);
 					break;
-				case 'one-to-one':
+				case 'OutletOneToOneAssociation':
 					$c .= $this->createOneToOneFunctions($entity, $assoc);
 					break;
-				case 'many-to-many':
+				case 'OutletManyToManyAssociation':
 					$c .= $this->createManyToManyFunctions($assoc);
 					break;
 				default:
-					throw new OutletException('Invalid association type: ' .$assoc->getType());
+					throw new OutletException('Invalid association type: ' . get_class($assoc));
 			}
 		}
 
@@ -221,7 +221,7 @@ class OutletProxyGenerator
 		$c .= $this->getFormattedString('  }', 2, 2);
 
 		$c .= $this->getFormattedString('  $q = Outlet::getInstance()->from(\'' . $foreign . '\')', 2, 1);
-		$c .= $this->getFormattedString('       ->innerJoin(\'' . $table . ' ON ' . $table . '.' . $tableKeyForeign . ' = {' . $foreign . '.' . $pk_prop . '}\')', 4, 1);
+		$c .= $this->getFormattedString('       ->innerJoinWithTable(\'' . $table . '\', \'' . $table . '.' . $tableKeyForeign . '\', \'{' . $foreign . '.' . $pk_prop . '}\')', 4, 1);
 		$c .= $this->getFormattedString('       ->where(\'' . $table . '.' . $tableKeyLocal . ' = ?\', array($this->' . $ref_pk . '));', 4, 2);
 
 		$c .= $this->getFormattedString('  parent::' . $setter . '(new OutletCollection($q));', 2, 2);

@@ -1,7 +1,7 @@
 <?php
 /**
  * File level comment
- * 
+ *
  * @package org.outlet-orm
  * @subpackage nestedset
  * @author Alvaro Carrasco
@@ -9,7 +9,7 @@
 
 /**
  * NestedSetBrowser....
- * 
+ *
  * @package org.outlet-orm
  * @subpackage nestedset
  * @author Alvaro Carrasco
@@ -20,17 +20,17 @@ class NestedSetBrowser
 	 * @var string
 	 */
 	protected $cls;
-	
+
 	/**
 	 * @var string
 	 */
 	protected $left;
-	
+
 	/**
 	 * @var string
 	 */
 	protected $right;
-	
+
 	/**
 	 * @var array
 	 */
@@ -55,123 +55,105 @@ class NestedSetBrowser
 	 */
 	public function remove($node)
 	{
-		// begin transaction
-		$outlet = Outlet::getInstance();
-		
-		$con = $outlet->getConnection();
+		$con = OutletEntityManager::getInstance()->getConnection($this->cls);
 		$con->beginTransaction();
-		
-		$c = '{' . $this->cls . '}';
-		$l = '{' . $this->cls . '.' . $this->left . '}';
-		$r = '{' . $this->cls . '.' . $this->right . '}';
-		;
-		
-		// qualifiers
-		$w = '';
-		
+
+		$leftProperty = '{' . $this->cls . '.' . $this->left . '}';
+		$rightProperty = '{' . $this->cls . '.' . $this->right . '}';
+
+		OutletQuery::delete()->from($this->cls)
+							 ->where($leftProperty . ' = ?')
+							 ->where($rightProperty . ' = ?')
+							 ->execute(array($node->Left, $node->Right));
+
+		$qualifiers = array();
+
 		foreach ($this->qualifiers as $field) {
-			$w .= "{" . "$field} = " . $outlet->quote($node->$field) . " AND ";
+			$qualifiers[] = '{' . $field . '} = ' . $con->quote($node->$field);
 		}
-		
-		// remove
-		$stmt = $outlet->prepare("
-			DELETE FROM $c
-			WHERE $w $l = ? AND $r = ?
-		");
-		$stmt->execute(array($node->Left, $node->Right));
-		
-		// glose gap
-		$stmt = $outlet->prepare("
-			UPDATE $c
-			SET $l = $l-2
-			WHERE $w $l > ?
-		");
-		
-		$stmt->execute(array($node->Left));
-		
-		$stmt = $outlet->prepare("
-			UPDATE $c
-			SET $r = $r-2
-			WHERE $w $r > ?
-		");
-		
-		$stmt->execute(array($node->Right));
-		
+
+		OutletQuery::update($this->cls)
+					 ->set($leftProperty, $leftProperty . ' - 2', true)
+					 ->where($qualifiers)
+					 ->where($leftProperty . ' > ?')
+					 ->execute(array($node->Left));
+
+		OutletQuery::update($this->cls)
+					 ->set($rightProperty, $rightProperty . ' - 2', true)
+					 ->where($qualifiers)
+					 ->where($rightProperty . ' > ?')
+					 ->execute(array($node->Right));
+
 		$con->commit();
 	}
 
 	public function appendChild($parent, $node)
 	{
-		// begin transaction
-		$outlet = Outlet::getInstance();
-		$con = $outlet->getConnection();
+		$con = OutletEntityManager::getInstance()->getConnection($this->cls);
 		$con->beginTransaction();
-		
-		$c = '{' . $this->cls . '}';
-		$l = '{' . $this->cls . '.' . $this->left . '}';
-		$r = '{' . $this->cls . '.' . $this->right . '}';
-		
-		// qualifiers
-		$w = '';
+
+		$leftProperty = '{' . $this->cls . '.' . $this->left . '}';
+		$rightProperty = '{' . $this->cls . '.' . $this->right . '}';
+
+		$qualifiers = array();
+
 		foreach ($this->qualifiers as $field) {
-			$w .= "{" . $this->cls . ".$field} = " . $outlet->quote($parent->$field) . " AND ";
+			$qualifiers[] = '{' . $this->cls . '.' .$field . '} = ' . $con->quote($parent->$field);
 		}
-		
-		// make space
-		$stmt = $outlet->prepare("
-			UPDATE $c
-			SET $l = $l+2
-			WHERE $w $l > ?
-		");
-		
-		$stmt->execute(array($parent->{$this->right}));
-		
-		$stmt = $outlet->prepare("
-			UPDATE $c
-			SET $r = $r+2
-			WHERE $w $r >= ?
-		");
-		
-		$stmt->execute(array($parent->{$this->right}));
-		
-		// insert node
+
+		OutletQuery::update($this->cls)
+					 ->set($leftProperty, $leftProperty . ' + 2', true)
+					 ->where($qualifiers)
+					 ->where($leftProperty . ' > ?')
+					 ->execute(array($parent->{$this->right}));
+
+		OutletQuery::update($this->cls)
+					 ->set($rightProperty, $rightProperty . ' + 2', true)
+					 ->where($qualifiers)
+					 ->where($rightProperty . ' > ?')
+					 ->execute(array($parent->{$this->right}));
+
 		$parent->{$this->right} += 2;
 		$node->{$this->left} = $parent->{$this->right} - 2;
 		$node->{$this->right} = $parent->{$this->right} - 1;
+
 		foreach ($this->qualifiers as $field) {
 			$node->$field = $parent->$field;
 		}
-		
-		$outlet->save($node);
-		
+
+		Outlet::getInstance()->save($node);
+
 		$con->commit();
-		
+
 		return $node;
 	}
 
+	/**
+	 * Enter description here ...
+	 *
+	 * @param object $obj
+	 * @return OutletProxy[]
+	 */
 	public function getChildren($obj)
 	{
-		$outlet = Outlet::getInstance();
-		
-		$cls = $this->cls;
-		$left = $this->left;
-		$right = $this->right;
-		
-		// qualifiers
-		$w = '';
-		
+		$query = Outlet::getInstance()->from($this->cls . ' n');
+
+		$query->leftJoinWithExpression(
+			$this->cls  . ' parent',
+			'({parent.' . $this->left . '} < {n.' . $this->left . '} AND {parent.' . $this->right . '} > {n.' . $this->right . '})'
+		);
+
 		foreach ($this->qualifiers as $field) {
-			$w .= "{n.$field} = " . $outlet->quote($obj->$field) . " AND ";
+			$query->where('{n.' . $field . '} = ?', array($obj->$field));
 		}
-		
-		$children = $outlet->from("$cls n")->leftJoin("{" . "$cls parent} ON ({parent.$left} < {n.$left} AND {parent.$right} > {n.$right})")->where("
-					$w
-					{n.$left} > ?
-					AND {n.$right} < ?
-					AND {parent.$left} >= ?
-					
-				", array($obj->Left, $obj->Right, $obj->Left))->select("COUNT({parent.$left})")->groupBy("{n.$left}, {n.$right}")->having("COUNT({parent.$left}) = 1")->find();
-		
-		return $children;
+
+		$query->where('{n.' . $this->left . '} = ?', array($obj->Left))
+			  ->where('{n.' . $this->right . '} = ?', array($obj->Right))
+			  ->where('{parent.' . $this->left . '} = ?', array($obj->Left))
+			  ->groupBy('n.' . $this->left)
+			  ->groupBy('n.' . $this->right)
+			  ->having('COUNT({parent.' . $this->left . '}) = 1');
+
+		return $query->find();
 	}
 }

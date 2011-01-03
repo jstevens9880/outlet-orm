@@ -1,7 +1,7 @@
 <?php
 /**
  * File level comment
- * 
+ *
  * @package org.outlet-orm
  * @subpackage pagination
  * @author Alvaro Carrasco
@@ -9,7 +9,7 @@
 
 /**
  * OutletPaginator....
- * 
+ *
  * @package org.outlet-orm
  * @subpackage pagination
  * @author Alvaro Carrasco
@@ -17,25 +17,25 @@
 class OutletPaginator
 {
 	/**
-	 * @var OutletQuery
+	 * @var OutletSelectQuery
 	 */
 	private $query;
-	
+
 	/**
 	 * @var int
 	 */
 	private $resultsPerPage;
-	
+
 	/**
 	 * @var int
 	 */
 	private $total;
 
 	/**
-	 * @param OutletQuery $query
+	 * @param OutletSelectQuery $query
 	 * @param int $resultsPerPage Results per page
 	 */
-	public function __construct(OutletQuery $query, $resultsPerPage = 10)
+	public function __construct(OutletSelectQuery $query, $resultsPerPage = 10)
 	{
 		$this->query = $query;
 		$this->resultsPerPage = $resultsPerPage;
@@ -50,9 +50,9 @@ class OutletPaginator
 		if (!$this->total) {
 			$this->total = $this->query->count();
 		}
-		
+
 		$offset = $page * $this->resultsPerPage - $this->resultsPerPage;
-		
+
 		return new OutletPaginatorResultSet(
 			$this->query->offset($offset)->limit($this->resultsPerPage)->find(),
 			$this->total,

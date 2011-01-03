@@ -27,7 +27,7 @@ class OutletCacheTest extends PHPUnit_Framework_TestCase
 		$cache->persist('Teste', array(1), array());
 		$this->assertEquals(array('Teste' => array(1 => array())), $cache->getCache());
 
-		$cache->clearCache();
+		$cache->clear();
 		$this->assertEquals(array(), $cache->getCache());
 	}
 

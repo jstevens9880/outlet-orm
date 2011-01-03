@@ -6,6 +6,7 @@ require_once 'application/org.outlet-orm/config/OutletConfigException.php';
 require_once 'application/org.outlet-orm/config/OutletConfigParser.php';
 require_once 'application/org.outlet-orm.config.parsers/xml/OutletXmlParser.php';
 require_once 'application/org.outlet-orm.config.parsers/xml/OutletXmlParserException.php';
+require_once 'application/org.outlet-orm/entity/OutletEmbeddableEntity.php';
 require_once 'application/org.outlet-orm/entity/OutletEntity.php';
 require_once 'application/org.outlet-orm/entity/OutletEntityProperty.php';
 require_once 'application/org.outlet-orm/association/OutletAssociation.php';
@@ -423,193 +424,101 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 		$parser->createEntityConfig('Address');
 	}
 
-	/**
-	 * Tests OutletXmlParser->parseClass()
-	 */
-	public function testParseClassNoOptionalParams()
+	public function testCreateEntityConfigWithoutMocks()
 	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<class name="Address" table="address">
-				<property name="AddressId" column="id" type="int" pk="true" autoIncrement="true" />
-				<property name="Street" column="street" type="varchar" />
-			</class>'
-		);
+		$xml = '<?xml version="1.0" encoding="UTF-8"?>
+			<outlet-config xmlns="http://www.outlet-orm.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.outlet-orm.org outlet-config.xsd ">
+				<connection>
+					<dialect>mysql</dialect>
+					<dsn>sqlite::memory:</dsn>
+				</connection>
+				<classes>
+					<class name="Address" table="addresses" plural="Addresses">
+						<property name="AddressId" column="id" type="int" pk="true" autoIncrement="true"/>
+						<property name="UserID" column="user_id" type="int"/>
+						<property name="Street" column="street" type="varchar"/>
+					</class>
+					<class name="Bug" table="bugs" sequenceName="bugsIdSeq">
+						<property name="ID" column="id" type="int" pk="true" autoIncrement="true"/>
+						<property name="Title" column="title" type="varchar"/>
+						<property name="ProjectID" column="project_id" type="int"/>
+						<property name="TimeToFix" column="time_to_fix" type="float" default="2000.000001"/>
+						<property name="Test_One" column="test_one" type="int"/>
+						<association type="many-to-one" classReference="Project" key="ProjectID"/>
+					</class>
+					<class name="Machine" table="machines">
+						<property name="Name" column="name" type="varchar" pk="true"/>
+						<property name="Description" column="description" type="varchar"/>
+					</class>
+					<class name="Project" table="projects">
+						<property name="ProjectID" column="id" type="int" pk="true" autoIncrement="true"/>
+						<property name="Name" column="name" type="varchar"/>
+						<property name="CreatedDate" column="created_date" type="datetime" defaultExpr="NOW()"/>
+						<property name="StatusID" column="status_id" type="int" default="1"/>
+						<property name="Description" column="description" type="varchar" default="Default Description"/>
+						<association type="one-to-many" classReference="Bug" key="ProjectID"/>
+					</class>
+					<class name="User" table="users">
+						<property name="UserID" column="id" type="int" pk="true" autoIncrement="true"/>
+						<property name="FirstName" column="first_name" type="varchar"/>
+						<property name="LastName" column="last_name" type="varchar"/>
+						<association type="one-to-many" classReference="Address" key="UserID" name="WorkAddress" plural="WorkAddresses"/>
+						<association type="many-to-many" classReference="Bug" table="watchers" tableKeyLocal="user_id" tableKeyForeign="bug_id"/>
+					</class>
+					<class name="Profile" table="profiles">
+						<property name="ProfileID" column="id" type="int" pk="true" autoIncrement="true"/>
+						<property name="UserID" column="user_id" type="int"/>
+						<association type="one-to-one" classReference="User" key="UserID" optional="true"/>
+					</class>
+				</classes>
+			</outlet-config>';
 
-		$parser = $this->getMock('OutletXmlParser', array('parseProperty'), array(), '', false);
-		$property = $this->getMock('OutletEntityProperty', array(), array(), '', false);
+		$parser = new OutletXmlParser($xml);
 
-		$parser->expects($this->exactly(2))
-			   ->method('parseProperty')
-			   ->will($this->returnValue($property));
+		$address = new OutletEntity('Address', 'addresses', 'Addresses');
+		$address->addProperty(new OutletEntityProperty('AddressId', 'id', 'int', true, true));
+		$address->addProperty(new OutletEntityProperty('UserID', 'user_id', 'int'));
+		$address->addProperty(new OutletEntityProperty('Street', 'street', 'varchar'));
 
-		$entity = $parser->parseClass($xml);
+		$machine = new OutletEntity('Machine', 'machines');
+		$machine->addProperty(new OutletEntityProperty('Name', 'name', 'varchar', true));
+		$machine->addProperty(new OutletEntityProperty('Description', 'description', 'varchar'));
 
-		$this->assertEquals('Address', $entity->getName());
-		$this->assertEquals('address', $entity->getTable());
-		$this->assertEquals('Addresss', $entity->getPlural());
-		$this->assertEquals(null, $entity->getSequenceName());
-		$this->assertEquals(2, $entity->getProperties()->count());
-		$this->assertEquals(0, $entity->getAssociations()->count());
-	}
+		$project = new OutletEntity('Project', 'projects');
+		$project->addProperty(new OutletEntityProperty('ProjectID', 'id', 'int', true, true));
+		$project->addProperty(new OutletEntityProperty('Name', 'name', 'varchar'));
+		$project->addProperty(new OutletEntityProperty('CreatedDate', 'created_date', 'datetime', false, false, null, 'NOW()'));
+		$project->addProperty(new OutletEntityProperty('StatusID', 'status_id', 'int', false, false, '1'));
+		$project->addProperty(new OutletEntityProperty('Description', 'description', 'varchar', false, false, 'Default Description'));
 
-	/**
-	 * Tests OutletXmlParser->parseClass()
-	 */
-	public function testParseClassWithOptionalParams()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<class name="Address" table="address" plural="Addresses" sequenceName="teste">
-				<property name="AddressId" column="id" type="int" pk="true" autoIncrement="true" />
-				<property name="Street" column="street" type="varchar" />
-			</class>'
-		);
+		$bug = new OutletEntity('Bug', 'bugs', null, 'bugsIdSeq');
+		$bug->addProperty(new OutletEntityProperty('ID', 'id', 'int', true, true));
+		$bug->addProperty(new OutletEntityProperty('Title', 'title', 'varchar'));
+		$bug->addProperty(new OutletEntityProperty('ProjectID', 'project_id', 'int'));
+		$bug->addProperty(new OutletEntityProperty('TimeToFix', 'time_to_fix', 'float', false, false, '2000.000001'));
+		$bug->addProperty(new OutletEntityProperty('Test_One', 'test_one', 'int'));
+		$bug->addAssociation(new OutletManyToOneAssociation($project, 'ProjectID', 'ProjectID'));
 
-		$parser = $this->getMock('OutletXmlParser', array('parseProperty'), array(), '', false);
-		$property = $this->getMock('OutletEntityProperty', array(), array(), '', false);
+		$project->addAssociation(new OutletOneToManyAssociation($bug, 'ProjectID', 'ProjectID'));
 
-		$parser->expects($this->exactly(2))
-			   ->method('parseProperty')
-			   ->will($this->returnValue($property));
+		$user = new OutletEntity('User', 'users');
+		$user->addProperty(new OutletEntityProperty('UserID', 'id', 'int', true, true));
+		$user->addProperty(new OutletEntityProperty('FirstName', 'first_name', 'varchar'));
+		$user->addProperty(new OutletEntityProperty('LastName', 'last_name', 'varchar'));
+		$user->addAssociation(new OutletOneToManyAssociation($address, 'UserID', 'UserID', 'WorkAddresses'));
+		$user->addAssociation(new OutletManyToManyAssociation($bug, 'ID', 'UserID', 'watchers', 'user_id', 'bug_id'));
 
-		$entity = $parser->parseClass($xml);
+		$profile = new OutletEntity('Profile', 'profiles');
+		$profile->addProperty(new OutletEntityProperty('ProfileID', 'id', 'int', true, true));
+		$profile->addProperty(new OutletEntityProperty('UserID', 'user_id', 'int'));
+		$profile->addAssociation(new OutletOneToOneAssociation($user, 'UserID', 'UserID', null, true));
 
-		$this->assertEquals('Address', $entity->getName());
-		$this->assertEquals('address', $entity->getTable());
-		$this->assertEquals('Addresses', $entity->getPlural());
-		$this->assertEquals('teste', $entity->getSequenceName());
-		$this->assertEquals(2, $entity->getProperties()->count());
-		$this->assertEquals(0, $entity->getAssociations()->count());
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseProperty()
-	 */
-	public function testParsePropertyNoOptionalParams()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<property name="AddressId" column="id" type="int" />'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
-		$property = $parser->parseProperty($xml);
-
-		$this->assertEquals('AddressId', $property->getName());
-		$this->assertEquals('id', $property->getColumn());
-		$this->assertEquals('int', $property->getType());
-		$this->assertEquals(false, $property->getPrimaryKey());
-		$this->assertEquals(false, $property->getAutoIncrement());
-		$this->assertEquals(null, $property->getDefaultValue());
-		$this->assertEquals(null, $property->getDefaultExpression());
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseProperty()
-	 */
-	public function testParsePropertyPkAutoInc()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<property name="AddressId" column="id" type="int" pk="true" autoIncrement="true" />'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
-		$property = $parser->parseProperty($xml);
-
-		$this->assertEquals('AddressId', $property->getName());
-		$this->assertEquals('id', $property->getColumn());
-		$this->assertEquals('int', $property->getType());
-		$this->assertEquals(true, $property->getPrimaryKey());
-		$this->assertEquals(true, $property->getAutoIncrement());
-		$this->assertEquals(null, $property->getDefaultValue());
-		$this->assertEquals(null, $property->getDefaultExpression());
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseProperty()
-	 */
-	public function testParsePropertyDefaultValue()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<property name="AddressId" column="id" type="int" default="1" />'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
-		$property = $parser->parseProperty($xml);
-
-		$this->assertEquals('AddressId', $property->getName());
-		$this->assertEquals('id', $property->getColumn());
-		$this->assertEquals('int', $property->getType());
-		$this->assertEquals(false, $property->getPrimaryKey());
-		$this->assertEquals(false, $property->getAutoIncrement());
-		$this->assertEquals(1, $property->getDefaultValue());
-		$this->assertEquals(null, $property->getDefaultExpression());
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseProperty()
-	 */
-	public function testParsePropertyDefaultExpression()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<property name="AddressId" column="id" type="int" defaultExpr="NOW()" />'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
-		$property = $parser->parseProperty($xml);
-
-		$this->assertEquals('AddressId', $property->getName());
-		$this->assertEquals('id', $property->getColumn());
-		$this->assertEquals('int', $property->getType());
-		$this->assertEquals(false, $property->getPrimaryKey());
-		$this->assertEquals(false, $property->getAutoIncrement());
-		$this->assertEquals(null, $property->getDefaultValue());
-		$this->assertEquals('NOW()', $property->getDefaultExpression());
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseAssociations()
-	 */
-	public function testParseAssociations()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<class name="User" table="user">
-				<property name="UserId" column="id" type="int" pk="true" autoIncrement="true" />
-				<property name="FirstName" column="first_name" type="varchar" />
-				<property name="LastName" column="last_name" type="varchar" />
-				<property name="AddressId" column="address_id" type="int" />
-				<association type="many-to-one" classReference="Address" key="AddressId"/>
-				<association type="one-to-many" classReference="Test" key="TestId"/>
-			</class>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('parseAssociation', 'getConfig'), array(), '', false);
-		$config = $this->getMock('OutletConfig', array('getEntity'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('addAssociation'), array(), '', false);
-		$assoc = $this->getMock('OutletAssociation');
-
-		$parser->expects($this->exactly(2))
-			   ->method('parseAssociation')
-			   ->will($this->returnValue($assoc));
-
-		$parser->expects($this->exactly(2))
-			   ->method('getConfig')
-			   ->will($this->returnValue($config));
-
-		$config->expects($this->exactly(2))
-			   ->method('getEntity')
-			   ->will($this->returnValue($entity));
-
-		$entity->expects($this->exactly(2))
-			   ->method('addAssociation')
-			   ->with($assoc);
-
-		$parser->parseAssociations($entity, $xml);
+		$this->assertEquals($address, $parser->getConfig()->getEntity('Address'));
+		$this->assertEquals($machine, $parser->getConfig()->getEntity('Machine'));
+		$this->assertEquals($project, $parser->getConfig()->getEntity('Project'));
+		$this->assertEquals($bug, $parser->getConfig()->getEntity('Bug'));
+		$this->assertEquals($user, $parser->getConfig()->getEntity('User'));
+		$this->assertEquals($profile, $parser->getConfig()->getEntity('Profile'));
 	}
 
 	/**
@@ -622,7 +531,7 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			<association type="many-to-many" classReference="Address" table="aa" tableKeyLocal="id" tableKeyForeign="id"/>'
 		);
 
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
+		$parser = $this->getParserMock();
 		$parser->validateAssociationConfig($xml);
 	}
 
@@ -638,7 +547,7 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			<association type="many-to-many" classReference="Address"/>'
 		);
 
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
+		$parser = $this->getParserMock();
 		$parser->validateAssociationConfig($xml);
 	}
 
@@ -652,7 +561,7 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			<association type="one-to-many" classReference="Address" key="aa"/>'
 		);
 
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
+		$parser = $this->getParserMock();
 		$parser->validateAssociationConfig($xml);
 	}
 
@@ -668,7 +577,7 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			<association type="one-to-many" classReference="Address"/>'
 		);
 
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
+		$parser = $this->getParserMock();
 		$parser->validateAssociationConfig($xml);
 	}
 
@@ -684,7 +593,7 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			<association type="one-to-many" classReference="Address" table="aa" tableKeyLocal="id" tableKeyForeign="id"/>'
 		);
 
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
+		$parser = $this->getParserMock();
 		$parser->validateAssociationConfig($xml);
 	}
 
@@ -700,7 +609,7 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			<association type="one-to-many" classReference="Address" key="aa" optional="true"/>'
 		);
 
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
+		$parser = $this->getParserMock();
 		$parser->validateAssociationConfig($xml);
 	}
 
@@ -716,454 +625,19 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			<association type="one-to-one" classReference="Address" key="aa" plural="Addresses"/>'
 		);
 
-		$parser = $this->getMock('OutletXmlParser', array('parseClass'), array(), '', false);
+		$parser = $this->getParserMock();
 		$parser->validateAssociationConfig($xml);
 	}
 
 	/**
-	 * Tests OutletXmlParser->parseAssociation()
-	 *
-	 * @expectedException OutletXmlParserException
+	 * @return OutletXmlParser
 	 */
-	public function testParseAssociationError()
+	protected function getParserMock()
 	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="many-to-one" classReference="Address" key="AddressId"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('createManyToOneAssociation', 'createManyToManyAssociation', 'createOneToOneAssociation', 'createOneToManyAssociation', 'validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array(), array(), '', false);
-		$entity2 = $this->getMock('OutletEntity', array(), array(), '', false);
-		$assoc = $this->getMock('OutletAssociation');
-
-		$parser->expects($this->once())
-			   ->method('validateAssociationConfig')
-			   ->will($this->throwException(new OutletXmlParserException('blablabla')));
-
-		$parser->expects($this->never())
-			   ->method('createManyToOneAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createManyToManyAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createOneToOneAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createOneToManyAssociation');
-
-		$parser->parseAssociation($entity, $entity2, $xml);
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseAssociation()
-	 */
-	public function testParseAssociationManyToOne()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="many-to-one" classReference="Address" key="AddressId"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig', 'createManyToOneAssociation', 'createManyToManyAssociation', 'createOneToOneAssociation', 'createOneToManyAssociation'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array(), array(), '', false);
-		$entity2 = $this->getMock('OutletEntity', array(), array(), '', false);
-		$assoc = $this->getMock('OutletAssociation');
-
-		$parser->expects($this->once())
-			   ->method('validateAssociationConfig');
-
-		$parser->expects($this->once())
-			   ->method('createManyToOneAssociation')
-			   ->with($entity2, $xml)
-			   ->will($this->returnValue($assoc));
-
-		$parser->expects($this->never())
-			   ->method('createManyToManyAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createOneToOneAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createOneToManyAssociation');
-
-		$this->assertEquals($assoc, $parser->parseAssociation($entity, $entity2, $xml));
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseAssociation()
-	 */
-	public function testParseAssociationManyToMany()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="many-to-many" classReference="Address" key="AddressId"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig', 'createManyToOneAssociation', 'createManyToManyAssociation', 'createOneToOneAssociation', 'createOneToManyAssociation'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array(), array(), '', false);
-		$entity2 = $this->getMock('OutletEntity', array(), array(), '', false);
-		$assoc = $this->getMock('OutletAssociation');
-
-		$parser->expects($this->once())
-			   ->method('validateAssociationConfig');
-
-		$parser->expects($this->never())
-			   ->method('createManyToOneAssociation');
-
-		$parser->expects($this->once())
-			   ->method('createManyToManyAssociation')
-			   ->with($entity, $entity2, $xml)
-			   ->will($this->returnValue($assoc));
-
-		$parser->expects($this->never())
-			   ->method('createOneToOneAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createOneToManyAssociation');
-
-		$this->assertEquals($assoc, $parser->parseAssociation($entity, $entity2, $xml));
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseAssociation()
-	 */
-	public function testParseAssociationOneToOne()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="one-to-one" classReference="Address" key="AddressId"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig', 'createManyToOneAssociation', 'createManyToManyAssociation', 'createOneToOneAssociation', 'createOneToManyAssociation'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array(), array(), '', false);
-		$entity2 = $this->getMock('OutletEntity', array(), array(), '', false);
-		$assoc = $this->getMock('OutletAssociation');
-
-		$parser->expects($this->once())
-			   ->method('validateAssociationConfig');
-
-		$parser->expects($this->never())
-			   ->method('createManyToOneAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createManyToManyAssociation');
-
-		$parser->expects($this->once())
-			   ->method('createOneToOneAssociation')
-			   ->with($entity2,  $xml)
-			   ->will($this->returnValue($assoc));
-
-		$parser->expects($this->never())
-			   ->method('createOneToManyAssociation');
-
-		$this->assertEquals($assoc, $parser->parseAssociation($entity, $entity2, $xml));
-	}
-
-	/**
-	 * Tests OutletXmlParser->parseAssociation()
-	 */
-	public function testParseAssociationOneToMany()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="one-to-many" classReference="Address" key="AddressId"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig', 'createManyToOneAssociation', 'createManyToManyAssociation', 'createOneToOneAssociation', 'createOneToManyAssociation'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array(), array(), '', false);
-		$entity2 = $this->getMock('OutletEntity', array(), array(), '', false);
-		$assoc = $this->getMock('OutletAssociation');
-
-		$parser->expects($this->once())
-			   ->method('validateAssociationConfig');
-
-		$parser->expects($this->never())
-			   ->method('createManyToOneAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createManyToManyAssociation');
-
-		$parser->expects($this->never())
-			   ->method('createOneToOneAssociation');
-
-		$parser->expects($this->once())
-			   ->method('createOneToManyAssociation')
-			   ->with($entity, $entity2, $xml)
-			   ->will($this->returnValue($assoc));
-
-		$this->assertEquals($assoc, $parser->parseAssociation($entity, $entity2, $xml));
-	}
-
-	/**
-	 * Tests OutletXmlParser->createManyToOneAssociation()
-	 */
-	public function testCreateManyToOneAssociation()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="many-to-one" classReference="Address" key="AddressId"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getName'), array(), '', false);
-
-		$entity->expects($this->once())
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('id'));
-
-		$entity->expects($this->once())
-			   ->method('getName')
-			   ->will($this->returnValue('Address'));
-
-		$assoc = $parser->createManyToOneAssociation($entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('id', $assoc->getRefKey());
-		$this->assertEquals('Address', $assoc->getName());
-		$this->assertEquals(false, $assoc->isOptional());
-	}
-
-	/**
-	 * Tests OutletXmlParser->createManyToOneAssociation()
-	 */
-	public function testCreateManyToOneAssociationWithOptionalSettings()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="many-to-one" classReference="Address" key="AddressId" name="Blablabla" optional="true"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getName'), array(), '', false);
-
-		$entity->expects($this->once())
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('id'));
-
-		$entity->expects($this->once())
-			   ->method('getName')
-			   ->will($this->returnValue('Address'));
-
-		$assoc = $parser->createManyToOneAssociation($entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('id', $assoc->getRefKey());
-		$this->assertEquals('Blablabla', $assoc->getName());
-		$this->assertEquals(true, $assoc->isOptional());
-	}
-
-	/**
-	 * Tests OutletXmlParser->createManyToManyAssociation()
-	 */
-	public function testCreateManyToManyAssociation()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="many-to-many" classReference="Address" table="teste" tableKeyLocal="teste_id" tableKeyForeign="teste_id2"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getPlural'), array(), '', false);
-
-		$entity->expects($this->exactly(2))
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('AddressId'));
-
-		$entity->expects($this->once())
-			   ->method('getPlural')
-			   ->will($this->returnValue('Addresses'));
-
-		$assoc = $parser->createManyToManyAssociation($entity, $entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('AddressId', $assoc->getRefKey());
-		$this->assertEquals('Addresses', $assoc->getName());
-		$this->assertEquals('teste', $assoc->getLinkingTable());
-		$this->assertEquals('teste_id', $assoc->getTableKeyLocal());
-		$this->assertEquals('teste_id2', $assoc->getTableKeyForeign());
-	}
-
-	/**
-	 * Tests OutletXmlParser->createManyToManyAssociation()
-	 */
-	public function testCreateManyToManyAssociationWithPlural()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="many-to-many" classReference="Address" table="teste" tableKeyLocal="teste_id" tableKeyForeign="teste_id2" plural="Tesssstes"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getPlural'), array(), '', false);
-
-		$entity->expects($this->exactly(2))
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('AddressId'));
-
-		$entity->expects($this->once())
-			   ->method('getPlural')
-			   ->will($this->returnValue('Addresses'));
-
-		$assoc = $parser->createManyToManyAssociation($entity, $entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('AddressId', $assoc->getRefKey());
-		$this->assertEquals('Tesssstes', $assoc->getName());
-		$this->assertEquals('teste', $assoc->getLinkingTable());
-		$this->assertEquals('teste_id', $assoc->getTableKeyLocal());
-		$this->assertEquals('teste_id2', $assoc->getTableKeyForeign());
-	}
-
-	/**
-	 * Tests OutletXmlParser->createOneToOneAssociation()
-	 */
-	public function testCreateOneToOneAssociation()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="one-to-one" classReference="Address" key="AddressId"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getName'), array(), '', false);
-
-		$entity->expects($this->once())
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('id'));
-
-		$entity->expects($this->once())
-			   ->method('getName')
-			   ->will($this->returnValue('Address'));
-
-		$assoc = $parser->createOneToOneAssociation($entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('id', $assoc->getRefKey());
-		$this->assertEquals('Address', $assoc->getName());
-		$this->assertEquals(false, $assoc->isOptional());
-	}
-
-	/**
-	 * Tests OutletXmlParser->createOneToOneAssociation()
-	 */
-	public function testCreateOneToOneAssociationWithOptionalSettings()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="one-to-one" classReference="Address" key="AddressId" name="Blablabla" optional="true"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getName'), array(), '', false);
-
-		$entity->expects($this->once())
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('id'));
-
-		$entity->expects($this->once())
-			   ->method('getName')
-			   ->will($this->returnValue('Address'));
-
-		$assoc = $parser->createOneToOneAssociation($entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('id', $assoc->getRefKey());
-		$this->assertEquals('Blablabla', $assoc->getName());
-		$this->assertEquals(true, $assoc->isOptional());
-	}
-
-	/**
-	 * Tests OutletXmlParser->createOneToManyAssociation()
-	 */
-	public function testCreateOneToManyAssociation()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="one-to-many" classReference="Address" key="AddressId"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getName'), array(), '', false);
-
-		$entity->expects($this->once())
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('AddressId'));
-
-		$entity->expects($this->once())
-			   ->method('getName')
-			   ->will($this->returnValue('Address'));
-
-		$assoc = $parser->createOneToManyAssociation($entity, $entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('AddressId', $assoc->getRefKey());
-		$this->assertEquals('Address', $assoc->getName());
-	}
-
-	/**
-	 * Tests OutletXmlParser->createOneToManyAssociation()
-	 */
-	public function testCreateOneToManyAssociationWithPlural()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="one-to-many" classReference="Address" key="AddressId" plural="Tesssstes"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getName'), array(), '', false);
-
-		$entity->expects($this->once())
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('AddressId'));
-
-		$entity->expects($this->once())
-			   ->method('getName')
-			   ->will($this->returnValue('Address'));
-
-		$assoc = $parser->createOneToManyAssociation($entity, $entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('AddressId', $assoc->getRefKey());
-		$this->assertEquals('Tesssstes', $assoc->getName());
-	}
-
-	/**
-	 * Tests OutletXmlParser->createOneToManyAssociation()
-	 */
-	public function testCreateOneToManyAssociationWithName()
-	{
-		$xml = new SimpleXMLElement(
-			'<?xml version="1.0" encoding="UTF-8"?>
-			<association type="one-to-many" classReference="Address" key="AddressId" name="Tesssstes"/>'
-		);
-
-		$parser = $this->getMock('OutletXmlParser', array('validateAssociationConfig'), array(), '', false);
-		$entity = $this->getMock('OutletEntity', array('getMainPrimaryKey', 'getName'), array(), '', false);
-
-		$entity->expects($this->once())
-			   ->method('getMainPrimaryKey')
-			   ->will($this->returnValue('AddressId'));
-
-		$entity->expects($this->once())
-			   ->method('getName')
-			   ->will($this->returnValue('Address'));
-
-		$assoc = $parser->createOneToManyAssociation($entity, $entity, $xml);
-
-		$this->assertEquals($entity, $assoc->getEntity());
-		$this->assertEquals('AddressId', $assoc->getKey());
-		$this->assertEquals('AddressId', $assoc->getRefKey());
-		$this->assertEquals('Tesssstes', $assoc->getName());
+		$parser = null;
+		eval('if (!class_exists("OutletXmlParser_Mock")) { class OutletXmlParser_Mock extends OutletXmlParser { public function __construct() {} public function validateAssociationConfig(SimpleXMLElement $assoc) { return parent::validateAssociationConfig($assoc); } } }');
+		eval('$parser = new OutletXmlParser_Mock();');
+
+		return $parser;
 	}
 }

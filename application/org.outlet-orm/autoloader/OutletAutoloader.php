@@ -88,12 +88,11 @@ class OutletAutoloader
 			$parsersDir = realpath(dirname(__FILE__) . '/../../org.outlet-orm.config.parsers/') . '/';
 
 			$this->directories = array();
-			$this->directories[] = $mainDir . 'association/';
-			$this->directories[] = $mainDir . 'config/';
 			$this->directories[] = $mainDir . 'core/';
-			$this->directories[] = $mainDir . 'database/';
 			$this->directories[] = $mainDir . 'entity/';
-			$this->directories[] = $mainDir . 'map/';
+			$this->directories[] = $mainDir . 'config/';
+			$this->directories[] = $mainDir . 'database/';
+			$this->directories[] = $mainDir . 'association/';
 			$this->directories[] = $mainDir . 'proxy/';
 			$this->directories[] = $parsersDir . 'xml/';
 			$this->directories[] = $parsersDir . 'array/';

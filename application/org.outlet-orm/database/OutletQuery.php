@@ -4,482 +4,129 @@
  *
  * @package org.outlet-orm
  * @subpackage database
- * @author Alvaro Carrasco
+ * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
  */
 
 /**
- * OutletQuery.....
+ * Base classe for queries
  *
  * @package org.outlet-orm
  * @subpackage database
- * @author Alvaro Carrasco
+ * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
  */
-class OutletQuery
+abstract class OutletQuery
 {
 	/**
-	 * @var string
-	 */
-	private $from;
-
-	/**
-	 * @var array
-	 */
-	private $with;
-
-	/**
-	 * @var array
-	 */
-	private $joins;
-
-	/**
-	 * @var string
-	 */
-	private $query;
-
-	/**
-	 * @var array
-	 */
-	private $params;
-
-	/**
-	 * @var string
-	 */
-	private $orderBy;
-
-	/**
-	 * @var int
-	 */
-	private $limit;
-
-	/**
-	 * @var int
-	 */
-	private $offset;
-
-	/**
-	 * @var string
-	 */
-	private $select;
-
-	/**
-	 * @var string
-	 */
-	private $groupBy;
-
-	/**
-	 * @var string
-	 */
-	private $having;
-
-	/**
-	 * Constructs a new instance of OutletQuery
+	 * Entity name
 	 *
-	 * @return OutletQuery instance
+	 * @var string
+	 */
+	protected $table;
+
+	/**
+	 * Where clause
+	 *
+	 * @var array
+	 */
+	protected $criteria;
+
+	/**
+	 * Creates a new delete query
+	 *
+	 * @return OutletDeleteQuery
+	 */
+	public static function delete()
+	{
+		return new OutletDeleteQuery();
+	}
+
+	/**
+	 * Creates a new update query
+	 *
+	 * @param string $entityName
+	 * @return OutletUpdateQuery
+	 */
+	public static function update($entityName)
+	{
+		return new OutletUpdateQuery($entityName);
+	}
+
+	/**
+	 * Creates a new insert query
+	 *
+	 * @return OutletInsertQuery
+	 */
+	public static function insert()
+	{
+		return new OutletInsertQuery();
+	}
+
+	/**
+	 * Creates a new select query
+	 *
+	 * @return OutletSelectQuery
+	 */
+	public static function select()
+	{
+		return new OutletSelectQuery();
+	}
+
+	/**
+	 * Class constructor
 	 */
 	public function __construct()
 	{
-		$this->with = array();
-		$this->joins = array();
-		$this->params = array();
+		$this->criteria = array();
 	}
 
 	/**
-	 * Entity table to select from
+	 * Sets the criteria
 	 *
-	 * @param string $from
-	 * @return OutletQuery for fluid interface
+	 * @param string $criteria
+	 * @return OutletQuery
 	 */
-	public function from($from)
+	public function where($criteria)
 	{
-		$this->from = $from;
+		$this->criteria[] = $criteria;
 
 		return $this;
 	}
 
 	/**
-	 * Where clause to filter results by
-	 *
-	 * @param string $q where clause
-	 * @param array $params parameters
-	 * @return OutletQuery for fluid interface
+	 * @return string
 	 */
-	public function where($q, array $params = array())
-	{
-		$this->query = $q;
-		$this->params = $params;
+	public abstract function toSql();
 
-		return $this;
+	/**
+	 * Executes the query using the given parameters
+	 *
+	 * @param array $params
+	 * @return PDOStatement
+	 */
+	public function execute(array $params = array())
+	{
+		$stm = $this->getEntityManager()->getConnection()->prepare(
+			$this->getTranslator()->translate($this)
+		);
+
+		$stm->execute($params);
+
+		return $stm;
 	}
 
 	/**
-	 * Declare an inner join
-	 *
-	 * @param string $join entity table to join on
-	 * @return OutletQuery for fluid interface
+	 * @return OutletQueryTranslator
 	 */
-	public function innerJoin($join)
+	protected function getTranslator()
 	{
-		$this->joins[] = 'INNER JOIN ' . $join . "\n";
-
-		return $this;
+		return new OutletQueryTranslator();
 	}
 
 	/**
-	 * Declare a left join
-	 *
-	 * @param string $join entity table to join on
-	 * @return OutletQuery for fluid interface
+	 * @return OutletEntityManager
 	 */
-	public function leftJoin($join)
+	protected function getEntityManager()
 	{
-		$this->joins[] = 'LEFT JOIN ' . $join . "\n";
-
-		return $this;
-	}
-
-	/**
-	 * Include associated entity tables
-	 *
-	 * @param string... variadiac entity tables to include
-	 * @return OutletQuery for fluid interface
-	 */
-	public function with()
-	{
-		$args = func_get_args();
-		$this->with = array_merge($this->with, $args);
-
-		return $this;
-	}
-
-	/**
-	 * Declare an ordering
-	 *
-	 * @param string $v Order clause
-	 * @return OutletQuery for fluid interface
-	 */
-	public function orderBy($v)
-	{
-		$this->orderBy = $v;
-
-		return $this;
-	}
-
-	/**
-	 * Declare a limit to the result set
-	 *
-	 * @param int $num Number of results to return
-	 * @return OutletQuery for fluid interface
-	 */
-	public function limit($num)
-	{
-		$this->limit = $num;
-
-		return $this;
-	}
-
-	/**
-	 * Declare an extra column to select
-	 *
-	 * @param string $s column
-	 * @return OutletQuery for fluid interface
-	 */
-	public function select($s)
-	{
-		$this->select = $s;
-
-		return $this;
-	}
-
-	/**
-	 * Declare an offset for the result set
-	 *
-	 * @param int $num Offset to begin returning result set at
-	 * @return OutletQuery for fluid interface
-	 */
-	public function offset($num)
-	{
-		$this->offset = $num;
-
-		return $this;
-	}
-
-	/**
-	 * Declare a grouping
-	 *
-	 * @param string $s column to group by
-	 * @return OutletQuery for fluid interface
-	 */
-	public function groupBy($s)
-	{
-		$this->groupBy = $s;
-
-		return $this;
-	}
-
-	/**
-	 * Declare a having clause
-	 *
-	 * @param string $s having condition
-	 * @return OutletQuery for fluid interface
-	 */
-	public function having($s)
-	{
-		$this->having = $s;
-
-		return $this;
-	}
-
-	private function addWiths(OutletSqlQuery $oq, OutletEntity $entMap, $from_aliased, &$with_map, $addToSelect = true)
-	{
-		// get the included entities
-		$with = array();
-		$with_aliased = array();
-
-		foreach ($this->with as $with_key => $j) {
-			$tmp = explode(' ', $j);
-
-			$with[$with_key] = $tmp[0];
-			$with_aliased[$with_key] = (count($tmp) > 1 ? $tmp[1] : $tmp[0]);
-			$assoc = $entMap->getAssociation($with[$with_key]);
-
-			if (!$assoc) {
-				throw new OutletException('No association found with entity or alias [' . $with[$with_key] . ']');
-			}
-
-			$foreign = $assoc->getEntity();
-
-			if ($addToSelect) {
-				foreach (array_keys($foreign->getProperties()->getArrayCopy()) as $key) {
-					$oq->addSelectField('{' . $with_aliased[$with_key] . '.' . $key . '} as ' . $with_aliased[$with_key] . '_' . $key);
-				}
-			}
-
-			$aliased_join = $with_aliased[$with_key];
-			$oq->addJoin('LEFT JOIN {' . $foreign->getName() . ' ' . $aliased_join . '} ON {' . $from_aliased . '.' . $assoc->getKey() . '} = {' . $with_aliased[$with_key] . '.' . $assoc->getRefKey() . '}');
-		}
-
-		if (count($with)) {
-			$with_map = array_combine($with_aliased, $with);
-		} else {
-			$with_map = array();
-		}
-	}
-
-	/**
-	 * Execute the query
-	 *
-	 * @return array result set
-	 */
-	public function find()
-	{
-		$oq = new OutletSqlQuery();
-		$with_map = array();
-
-		$outlet = Outlet::getInstance();
-
-		// get the 'from'
-		$tmp = explode(' ', $this->from);
-
-		$from = $tmp[0];
-		$from_aliased = (count($tmp) > 1 ? $tmp[1] : $tmp[0]);
-
-		$entMap = $outlet->getEntityMap($from);
-
-		foreach (array_keys($entMap->getProperties()->getArrayCopy()) as $key) {
-			$oq->addSelectField('{' . $from_aliased . '.' . $key . '} as ' . $from_aliased . '_' . $key);
-		}
-
-		if ($this->select) {
-			//$q .= ", " . $this->select;
-			$oq->addSelectField($this->select);
-		}
-
-		// from
-		$oq->setFrom('{' . $this->from . '}');
-
-		// with
-		$this->addWiths($oq, $entMap, $from_aliased, $with_map);
-
-		// joins
-		foreach ($this->joins as $join) {
-			$oq->addJoin($join);
-		}
-
-		if ($this->query) {
-			$oq->setWhere('WHERE ' . $this->query);
-		}
-
-		if ($this->groupBy) {
-			$oq->setGroupBy('GROUP BY ' . $this->groupBy);
-		}
-
-		if ($this->orderBy) {
-			$oq->setOrderBy('ORDER BY ' . $this->orderBy);
-		}
-
-		if ($this->having) {
-			$oq->setHaving('HAVING ' . $this->having);
-		}
-
-		// TODO: Make it work on MS SQL
-		//	   In SQL Server 2005 http://www.singingeels.com/Articles/Pagination_In_SQL_Server_2005.aspx
-		if ($this->limit) {
-			$oq->setLimit('LIMIT ' . $this->limit);
-
-			if ($this->offset) {
-				$oq->setOffset(' OFFSET ' . $this->offset);
-			}
-		}
-
-		$q = $oq->toSql();
-
-		$stmt = $outlet->query($q, $this->params);
-
-		$res = array();
-
-		// populate objects
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			$res[] = $this->populateObject($row, $entMap, $from_aliased, $from, $with_map);
-		}
-
-		return $res;
-	}
-
-	/**
-	 * Execute a count
-	 *
-	 * Count always ignores limit, offset, and order by
-	 *
-	 * @return int Count
-	 */
-	public function count()
-	{
-		$oq = new OutletSqlQuery();
-		$with_map = array();
-
-		$outlet = Outlet::getInstance();
-
-		// get the 'from'
-		$tmp = explode(' ', $this->from);
-
-		$from = $tmp[0];
-		$from_aliased = (count($tmp) > 1 ? $tmp[1] : $tmp[0]);
-
-		$entMap = $outlet->getEntityMap($from);
-
-		// select
-		$oq->addSelectField('COUNT(*) as total');
-
-		// from
-		$oq->setFrom('{' . $this->from . '}');
-
-		// with
-		$this->addWiths($oq, $entMap, $from_aliased, $with_map, false);
-
-		// joins
-		foreach ($this->joins as $join) {
-			$oq->addJoin($join);
-		}
-
-		if ($this->query) {
-			$oq->setWhere('WHERE ' . $this->query);
-		}
-
-		if ($this->groupBy) {
-			$oq->setGroupBy('GROUP BY ' . $this->groupBy);
-		}
-
-		if ($this->having) {
-			$oq->setHaving('HAVING ' . $this->having);
-		}
-
-		$q = $oq->toSql();
-
-		$stmt = $outlet->query($q, $this->params);
-		$res = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-		return (int) $res[0]['total'];
-	}
-
-	private function populateObject(array $row, OutletEntity $entMap, $from_aliased, $from, array $with_map)
-	{
-		$data = array();
-		$outlet = Outlet::getInstance();
-		// Postgres returns columns as lowercase
-		// TODO: Maybe everything should be converted to lower in query creation / processing to avoid this
-		$dialect = $outlet->getConnection()->getDialect();
-
-		foreach ($entMap->getProperties() as $key => $p) {
-			if ($dialect == 'pgsql') {
-				$data[$p[0]] = $row[strtolower($from_aliased) . '_' . strtolower($key)];
-			} else {
-				$data[$p->getColumn()] = $row[$from_aliased . '_' . $key];
-			}
-		}
-
-		$obj = $outlet->getEntityForRow($from, $data);
-
-		foreach ($with_map as $alias => $with) {
-			$a = $entMap->getAssociation($with);
-
-			if ($a) {
-				$data = array();
-				$setter = 'set' . $a->getName();
-				$with_entMap = $a->getEntity();
-
-				if ($a instanceof OutletOneToManyAssociation) {
-					// TODO: Implement...
-				} elseif ($a instanceof OutletManyToManyAssociation) {
-					// TODO: Implement...
-				} else { // Many-to-one or one-to-one
-					foreach ($with_entMap->getProperties() as $key => $p) {
-						// Postgres returns columns as lowercase
-						// TODO: Maybe everything should be converted to lower in query creation / processing to avoid this
-						if ($dialect == 'pgsql') {
-							$data[$p->getColumn()] = $row[strtolower($alias . '_' . $key)];
-						} else {
-							$data[$p->getColumn()] = $row[$alias . '_' . $key];
-						}
-					}
-
-					$f = $with_entMap->getPrimaryKeysColumns();
-
-					// check to see if we found any data for the related entity
-					// using the pk
-					$data_returned = false;
-
-					foreach ($f as $k) {
-						if (isset($data[$k])) {
-							$data_returned = true;
-							break;
-						}
-					}
-
-					// only fill object if there was data returned
-					if ($data_returned) {
-						$obj->$setter($outlet->getEntityForRow($with_entMap->getName(), $data));
-					}
-				}
-			}
-		}
-
-		return $obj;
-	}
-
-	/**
-	 * Executes query returning the first result out of the result set
-	 *
-	 * @return object first result out of the result set
-	 */
-	public function findOne()
-	{
-		$res = $this->limit(1)->find();
-
-		return count($res) > 0 ? $res[0] : null;
-	}
-
-	public function getOutlet()
-	{
-		return Outlet::getInstance();
+		return OutletEntityManager::getInstance();
 	}
 }

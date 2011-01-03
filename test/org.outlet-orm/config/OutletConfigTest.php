@@ -2,6 +2,7 @@
 require_once 'application/org.outlet-orm/config/OutletConnectionConfig.php';
 require_once 'application/org.outlet-orm/config/OutletConfig.php';
 require_once 'application/org.outlet-orm/config/OutletConfigParser.php';
+require_once 'application/org.outlet-orm/entity/OutletEmbeddableEntity.php';
 require_once 'application/org.outlet-orm/entity/OutletEntity.php';
 require_once 'PHPUnit/Framework/TestCase.php';
 

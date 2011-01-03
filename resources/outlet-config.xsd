@@ -58,6 +58,11 @@
 					<xs:documentation>Entity Mappings</xs:documentation>
 				</xs:annotation>
 			</xs:element>
+			<xs:element name="embeddable" type="EmbeddableType" minOccurs="0" maxOccurs="unbounded">
+				<xs:annotation>
+					<xs:documentation>Embeddable Class Mappings</xs:documentation>
+				</xs:annotation>
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 	
@@ -91,13 +96,24 @@ If not specified it will use the default: {table_name}_{column_name}_seq</xs:doc
 		</xs:attribute>
 	</xs:complexType>
 	
+	<xs:complexType name="EmbeddableType">
+		<xs:sequence>
+			<xs:element name="property" type="PropertyType" minOccurs="1" maxOccurs="unbounded" />
+		</xs:sequence>
+		<xs:attribute name="name" type="xs:string" use="required">
+			<xs:annotation>
+				<xs:documentation>Name of the entity class</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+	</xs:complexType>
+	
 	<xs:complexType name="PropertyType">
 		<xs:attribute name="name" type="xs:string" use="required">
 			<xs:annotation>
 				<xs:documentation>Class's property name</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
-		<xs:attribute name="column" type="xs:string" use="required">
+		<xs:attribute name="column" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation>Table's column name</xs:documentation>
 			</xs:annotation>
@@ -127,6 +143,11 @@ If not specified it will use the default: {table_name}_{column_name}_seq</xs:doc
 				<xs:documentation>A default sql expression or function, such as NOW().</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="ref" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation>Embedded's class name</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 	
 	<xs:simpleType name="TypeList">
@@ -137,6 +158,7 @@ If not specified it will use the default: {table_name}_{column_name}_seq</xs:doc
     		<xs:enumeration value="datetime" />
     		<xs:enumeration value="float" />
     		<xs:enumeration value="bool" />
+    		<xs:enumeration value="embedded" />
     	</xs:restriction>
 	</xs:simpleType>
 	

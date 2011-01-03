@@ -26,13 +26,13 @@ class OutletCache
 	 */
 	public function __construct()
 	{
-		$this->clearCache();
+		$this->clear();
 	}
 
 	/**
 	 * Clears the Outlet Cache
 	 */
-	public function clearCache()
+	public function clear()
 	{
 		$this->cache = array();
 	}

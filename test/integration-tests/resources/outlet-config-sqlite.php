@@ -1,7 +1,7 @@
 <?php
 return array(
 	'connection' => array(
-		'pdo' => new PDO('sqlite::memory:'),
+		'dsn' => 'sqlite::memory:',
 		'dialect' => 'sqlite'
 	),
 	'classes' => array(

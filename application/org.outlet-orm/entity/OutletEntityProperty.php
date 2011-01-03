@@ -1,7 +1,7 @@
 <?php
 /**
  * Contains the class to configure Outlet's entity
- * 
+ *
  * @package org.outlet-orm
  * @subpackage entity
  * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
@@ -9,7 +9,7 @@
 
 /**
  * Class that maps the class's property with the database info
- * 
+ *
  * @package org.outlet-orm
  * @subpackage entity
  * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
@@ -18,56 +18,56 @@ class OutletEntityProperty
 {
 	/**
 	 * Property name
-	 * 
+	 *
 	 * @var string
 	 */
 	private $name;
-	
+
 	/**
 	 * Column name
-	 * 
+	 *
 	 * @var string
 	 */
 	private $column;
-	
+
 	/**
 	 * Column data type
-	 * 
+	 *
 	 * @var string
 	 */
 	private $type;
-	
+
 	/**
 	 * Whether this property is (part of) the primary key
-	 * 
+	 *
 	 * @var boolean
 	 */
 	private $primaryKey;
-	
+
 	/**
 	 * Whether this property is automatically incremented by the database
-	 * 
+	 *
 	 * @var boolean
 	 */
 	private $autoIncrement;
-	
+
 	/**
 	 * A default value
-	 * 
+	 *
 	 * @var string|int
 	 */
 	private $defaultValue;
-	
+
 	/**
 	 * A default sql expression or function
-	 * 
+	 *
 	 * @var string
 	 */
 	private $defaultExpression;
-	
+
 	/**
 	 * Constructor
-	 * 
+	 *
 	 * @param string $name
 	 * @param string $column
 	 * @param string $type
@@ -86,7 +86,7 @@ class OutletEntityProperty
 		$this->setDefaultValue($defaultValue);
 		$this->setDefaultExpression($defaultExpression);
 	}
-	
+
 	/**
 	 * @return string
 	 */
@@ -184,11 +184,27 @@ class OutletEntityProperty
 	}
 
 	/**
+	 * @return boolean
+	 */
+	public function hasDefaultValue()
+	{
+		return !is_null($this->defaultValue);
+	}
+
+	/**
 	 * @return string
 	 */
 	public function getDefaultExpression()
 	{
 		return $this->defaultExpression;
+	}
+
+	/**
+	 * @return boolean
+	 */
+	public function hasDefaultExpression()
+	{
+		return !is_null($this->defaultExpression);
 	}
 
 	/**

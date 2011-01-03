@@ -4,6 +4,8 @@ set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/../
 require_once 'PHPUnit/Framework/TestSuite.php';
 
 require_once 'test/org.outlet-orm/autoloader/OutletAutoloaderTest.php';
+require_once 'test/org.outlet-orm/database/OutletWriteQueryTest.php';
+require_once 'test/org.outlet-orm/database/OutletQueryTest.php';
 require_once 'test/org.outlet-orm/database/OutletConnectionTest.php';
 require_once 'test/org.outlet-orm/config/OutletConnectionConfigTest.php';
 require_once 'test/org.outlet-orm/config/OutletConfigTest.php';
@@ -27,6 +29,8 @@ class OutletTestSuite extends PHPUnit_Framework_TestSuite
 		$this->addTestSuite('OutletConfigTest');
 		$this->addTestSuite('OutletProxyFactoryTest');
 		$this->addTestSuite('OutletCacheTest');
+		$this->addTestSuite('OutletWriteQueryTest');
+		$this->addTestSuite('OutletQueryTest');
 	}
 	/**
 	 * Creates the suite.

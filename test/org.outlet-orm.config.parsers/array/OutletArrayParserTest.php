@@ -6,6 +6,7 @@ require_once 'application/org.outlet-orm/config/OutletConfigException.php';
 require_once 'application/org.outlet-orm/config/OutletConfigParser.php';
 require_once 'application/org.outlet-orm.config.parsers/array/OutletArrayParser.php';
 require_once 'application/org.outlet-orm.config.parsers/array/OutletArrayParserException.php';
+require_once 'application/org.outlet-orm/entity/OutletEmbeddableEntity.php';
 require_once 'application/org.outlet-orm/entity/OutletEntity.php';
 require_once 'application/org.outlet-orm/entity/OutletEntityProperty.php';
 require_once 'application/org.outlet-orm/association/OutletAssociation.php';
