@@ -1,6 +1,6 @@
 <?php
 /**
- * Classe responsável pelos INSERTS
+ * Class responsable for INSERTS
  *
  * @package org.outlet-orm
  * @subpackage database
@@ -8,7 +8,7 @@
  */
 
 /**
- * Classe responsável pelos INSERTS
+ * Class responsable for INSERTS
  *
  * @package org.outlet-orm
  * @subpackage database

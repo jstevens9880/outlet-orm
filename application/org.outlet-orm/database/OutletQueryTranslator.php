@@ -1,4 +1,19 @@
 <?php
+/**
+ * Class for query consersion
+ *
+ * @package org.outlet-orm
+ * @subpackage database
+ * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
+ */
+
+/**
+ * Class for query consersion
+ *
+ * @package org.outlet-orm
+ * @subpackage database
+ * @author Luís Otávio Cobucci Oblonczyk <luis@softnex.com.br>
+ */
 class OutletQueryTranslator
 {
 	/**
@@ -46,8 +61,17 @@ class OutletQueryTranslator
 
 			if (strpos($str, '.') !== false) {
 				list($alias, $prop) = explode('.', $str);
+				$entity = $this->getEntityManager()->getEntity($tables[$alias]['entityName']);
 
-				$column = $this->getEntityManager()->getEntity($tables[$alias]['entityName'])->getProperty($prop)->getColumn();
+				if ($property = $entity->getProperty($prop)) {
+					$column = $property->getColumn();
+				} else {
+					foreach ($entity->getEmbeddedProperties() as $property) {
+						if ($embeddedProp = $property->getEmbeddedEntity()->getProperty($prop)) {
+							$column = $embeddedProp->getColumn();
+						}
+					}
+				}
 
 				if (!$queryObj instanceof OutletWriteQuery) {
 					if ($alias == $tables[$alias]['entityName']) {

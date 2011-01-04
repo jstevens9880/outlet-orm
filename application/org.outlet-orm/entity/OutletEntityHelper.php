@@ -77,7 +77,12 @@ class OutletEntityHelper
 		$properties = array();
 
 		foreach ($entity->getProperties() as $prop) {
-			$properties[$prop->getName()] = $this->getPropertyValue($entity, $prop->getName(), $obj);
+			if (!$prop->isEmbedded()) {
+				$properties[$prop->getName()] = $this->getPropertyValue($entity, $prop->getName(), $obj);
+			} else {
+				$embeddedEntity = $prop->getEmbeddedEntity();
+				$properties = array_merge($properties, $this->extractValues($embeddedEntity, $this->getPropertyValue($entity, $prop->getName(), $obj)));
+			}
 		}
 
 		return $properties;
@@ -94,9 +99,13 @@ class OutletEntityHelper
 	{
 		$properties = array();
 
-		foreach ($this->extractValues($entity, $obj) as $prop => $value) {
-			$property = $entity->getProperty($prop);
-			$properties[$property->getColumn()] = OutletWriteQuery::toSqlValue($property->getType(), $value);
+		foreach ($entity->getProperties() as $prop) {
+			if (!$prop->isEmbedded()) {
+				$properties[$prop->getColumn()] = OutletWriteQuery::toSqlValue($prop->getType(), $this->getPropertyValue($entity, $prop->getName(), $obj));
+			} else {
+				$embeddedEntity = $prop->getEmbeddedEntity();
+				$properties = array_merge($properties, $this->extractValuesToSql($embeddedEntity, $this->getPropertyValue($entity, $prop->getName(), $obj)));
+			}
 		}
 
 		return $properties;
@@ -169,17 +178,122 @@ class OutletEntityHelper
 	 */
 	public function populateObject(OutletEmbeddableEntity $entity, $obj, array $properties)
 	{
-		foreach ($properties as $property => $value) {
-			$property = $entity->getPropertyByColumn($property);
+		$embbedProps = array();
+
+		foreach ($properties as $column => $value) {
+			if ($property = $entity->getPropertyByColumn($column)) {
+				$this->setPropertyValue(
+					$entity,
+					$property->getName(),
+					$obj,
+					$this->fromSqlValue(
+						$property->getType(),
+						$value
+					)
+				);
+			} else {
+				$embbedProps[$column] = $value;
+			}
+		}
+
+		foreach ($entity->getEmbeddedProperties() as $property) {
+			$embbedEntity = $property->getEmbeddedEntity();
+			$embbedName = $embbedEntity->getName();
+			$embeddedObj = new $embbedName;
+
+			$this->populateObject($embbedEntity, $embeddedObj, $embbedProps);
 
 			$this->setPropertyValue(
 				$entity,
 				$property->getName(),
 				$obj,
-				$this->fromSqlValue(
-					$property->getType(),
-					$value
-				)
+				$embeddedObj
+			);
+		}
+	}
+
+	/**
+	 * Populate the query with the properties
+	 *
+	 * @param OutletEmbeddableEntity $entity
+	 * @param OutletInsertQuery $query
+	 * @param object $obj
+	 * @param OutletEmbeddableEntity $mainEntity
+	 */
+	public function fillInsertQuery(OutletEmbeddableEntity $entity, OutletInsertQuery $query, $obj, OutletEmbeddableEntity $mainEntity = null)
+	{
+		foreach ($entity->getProperties() as $propName => $property) {
+			if (!$property->getAutoIncrement()) {
+				$entityToUse = is_null($mainEntity) ? $entity : $mainEntity;
+
+				if (is_null($this->getPropertyValue($entity, $propName, $obj)) && $property->hasDefaultValue()) {
+					$this->setPropertyValue($entity, $propName, $obj, $property->getDefaultValue());
+				}
+
+				if (is_null($this->getPropertyValue($entity, $propName, $obj)) && $property->hasDefaultExpression()) {
+					$query->setExpression('{' . $entityToUse->getName() . '.' . $propName . '}', $property->getDefaultExpression());
+				} else {
+					if (!$property->isEmbedded()) {
+						$query->set(
+							'{' . $entityToUse->getName() . '.' . $propName . '}',
+							$this->getPropertyValue($entity, $propName, $obj),
+							$property->getType()
+						);
+					} else {
+						$this->fillInsertQuery(
+							$property->getEmbeddedEntity(),
+							$query,
+							$this->getPropertyValue($entity, $propName, $obj),
+							$entityToUse
+						);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Populate the query with the properties
+	 *
+	 * @param OutletEmbeddableEntity $entity
+	 * @param OutletUpdateQuery $query
+	 * @param object $obj
+	 * @param array $modifiedProperties
+	 * @param OutletEmbeddableEntity $mainEntity
+	 */
+	public function fillUpdateQuery(OutletEmbeddableEntity $entity, OutletUpdateQuery $query, $obj, array $modifiedProperties, OutletEmbeddableEntity $mainEntity = null)
+	{
+		$entityToUse = is_null($mainEntity) ? $entity : $mainEntity;
+
+		foreach ($modifiedProperties as $key) {
+			$property = $entity->getPropertyByColumn($key);
+
+			if (is_null($property)) {
+				$property = $entity->getProperty($key);
+			}
+
+			if (!is_null($property)) {
+				$key = $property->getName();
+
+				if (!$property->getPrimaryKey()) {
+					$value = $this->getPropertyValue($entity, $key, $obj);
+
+					$query->set(
+						'{' . $entityToUse->getName() . '.' . $key . '}',
+						$value,
+						$property->getType()
+					);
+				}
+			}
+		}
+
+		foreach ($entity->getEmbeddedProperties() as $embeddedProp) {
+			$this->fillUpdateQuery(
+				$embeddedProp->getEmbeddedEntity(),
+				$query,
+				$this->getPropertyValue($entity, $embeddedProp->getName(), $obj),
+				$modifiedProperties,
+				$entityToUse
 			);
 		}
 	}

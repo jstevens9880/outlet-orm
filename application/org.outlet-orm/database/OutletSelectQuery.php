@@ -1,6 +1,6 @@
 <?php
 /**
- * Classe responsável pelos SELECTS
+ * Class responsable for SELECTS
  *
  * @package org.outlet-orm
  * @subpackage database
@@ -8,7 +8,7 @@
  */
 
 /**
- * Classe responsável pelos SELECTS
+ * Class responsable for SELECTS
  *
  * @package org.outlet-orm
  * @subpackage database
@@ -407,8 +407,21 @@ class OutletSelectQuery extends OutletQuery
 		$entityData = $this->getFromData();
 		$entity = $this->getEntityManager()->getEntity($entityData->entityName);
 
-		foreach (array_keys($entity->getProperties()) as $property) {
-			$this->appendProperty($entityData->alias . '.' . $property);
+		$this->appendEntityFields($entity, $entityData->alias);
+	}
+
+	/**
+	 * @param OutletEmbeddableEntity $entity
+	 * @param string $alias
+	 */
+	protected function appendEntityFields(OutletEmbeddableEntity $entity, $alias)
+	{
+		foreach ($entity->getProperties() as $propertyName => $property) {
+			if (!$property->isEmbedded()) {
+				$this->appendProperty($alias . '.' . $propertyName);
+			} else {
+				$this->appendEntityFields($property->getEmbeddedEntity(), $alias);
+			}
 		}
 	}
 

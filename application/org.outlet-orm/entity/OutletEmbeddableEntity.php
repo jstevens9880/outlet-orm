@@ -116,6 +116,24 @@ class OutletEmbeddableEntity
 	}
 
 	/**
+	 * Returns the properties that are embedded
+	 *
+	 * @return array
+	 */
+	public function getEmbeddedProperties()
+	{
+		$properties = array();
+
+		foreach ($this->getProperties() as $property) {
+			if ($property->isEmbedded()) {
+				$properties[$property->getName()] = $property;
+			}
+		}
+
+		return $properties;
+	}
+
+	/**
 	 * Returns if entity uses getters and setters
 	 *
 	 * @param string $method

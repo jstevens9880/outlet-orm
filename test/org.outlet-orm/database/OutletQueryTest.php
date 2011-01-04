@@ -4,6 +4,7 @@ date_default_timezone_set('America/Sao_Paulo');
 require_once 'application/org.outlet-orm/core/OutletException.php';
 require_once 'application/org.outlet-orm/core/Outlet.php';
 require_once 'application/org.outlet-orm/database/OutletQuery.php';
+require_once 'application/org.outlet-orm/database/OutletQueryTranslator.php';
 require_once 'application/org.outlet-orm/database/OutletWriteQuery.php';
 require_once 'application/org.outlet-orm/database/OutletDeleteQuery.php';
 require_once 'application/org.outlet-orm/database/OutletUpdateQuery.php';
@@ -150,6 +151,16 @@ class OutletQueryTest extends PHPUnit_Framework_TestCase
 		$outletQuery = $this->getMock('OutletQueryMock', array('toSql'), array(), '', false);
 
 		$this->assertEquals(OutletEntityManager::getInstance(), $outletQuery->getEntityManager());
+	}
+
+	/**
+	 * Tests OutletQuery->getTranslator()
+	 */
+	public function testGetTranslator()
+	{
+		$outletQuery = $this->getMock('OutletQueryMock', array('toSql'), array(), '', false);
+
+		$this->assertEquals(new OutletQueryTranslator(), $outletQuery->getTranslator());
 	}
 
 	/**

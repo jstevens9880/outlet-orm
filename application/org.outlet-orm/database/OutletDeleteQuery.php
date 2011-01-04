@@ -1,6 +1,6 @@
 <?php
 /**
- * Classe responsável pelos DELETS
+ * Class responsable for DELETEs
  *
  * @package org.outlet-orm
  * @subpackage database
@@ -8,7 +8,7 @@
  */
 
 /**
- * Classe responsável pelos DELETS
+ * Class responsable for DELETEs
  *
  * @package org.outlet-orm
  * @subpackage database

@@ -134,9 +134,9 @@ class OutletConfig
 	/**
 	 * Append an entity into entities list
 	 *
-	 * @param OutletEntity $entity
+	 * @param OutletEmbeddableEntity $entity
 	 */
-	public function addEntity(OutletEntity $entity)
+	public function addEntity(OutletEmbeddableEntity $entity)
 	{
 		$this->entities[$entity->getName()] = $entity;
 	}

@@ -85,10 +85,6 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			file_put_contents($file, $xmlString);
 
 			$obj = new OutletXmlParser($file);
-
-			$this->assertNotNull($obj->getSource());
-
-			unlink($file);
 		} catch (OutletXmlParserException $e) {
 			unlink($file);
 			throw $e;
@@ -101,8 +97,6 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 	public function test__constructFromStringInvalidXml()
 	{
 		$obj = new OutletXmlParser('aa');
-
-		$this->assertNotNull($obj->getSource());
 	}
 
 	/**
@@ -267,6 +261,34 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 	/**
 	 * Tests OutletArrayParser->entityExists()
 	 */
+	public function testEntityExistsWithEmbeddedEntity()
+	{
+		$xml = '<?xml version="1.0" encoding="UTF-8"?>
+			<outlet-config xmlns="http://www.outlet-orm.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.outlet-orm.org outlet-config.xsd ">
+				<connection>
+					<dialect>mysql</dialect>
+					<dsn>sqlite::memory:</dsn>
+				</connection>
+				<classes>
+					<class name="Machine" table="machine">
+						<property name="Name" column="name" type="varchar" />
+						<property name="Description" column="description" type="varchar" />
+					</class>
+					<embeddable name="Address">
+						<property name="streetName" column="street" type="varchar" />
+						<property name="number" column="num" type="varchar" />
+					</embeddable>
+				</classes>
+			</outlet-config>';
+
+		$parser = new OutletXmlParser($xml);
+
+		$this->assertTrue($parser->entityExists('Address'));
+	}
+
+	/**
+	 * Tests OutletArrayParser->entityExists()
+	 */
 	public function testEntityExistsNoExistingClass()
 	{
 		$xml = '<?xml version="1.0" encoding="UTF-8"?>
@@ -318,7 +340,7 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 	 */
 	public function testCreateEntityConfigNonExistingClass()
 	{
-		$parser = $this->getMock('OutletXmlParser', array('getConfig', 'getEntityConfig'), array(), '', false);
+		$parser = $this->getMock('OutletXmlParser', array('getConfig', 'getEntityConfig', 'getEmbeddableEntityConfig'), array(), '', false);
 		$config = $this->getMock('OutletConfig', array('entityExists'), array(), '', false);
 
 		$parser->expects($this->once())
@@ -327,6 +349,11 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 
 		$parser->expects($this->once())
 			   ->method('getEntityConfig')
+			   ->with('Address2')
+			   ->will($this->returnValue(null));
+
+		$parser->expects($this->once())
+			   ->method('getEmbeddableEntityConfig')
 			   ->with('Address2')
 			   ->will($this->returnValue(null));
 
@@ -376,6 +403,64 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 			   ->method('entityExists')
 			   ->with('Address')
 			   ->will($this->returnValue(false));
+
+		$config->expects($this->once())
+			   ->method('addEntity')
+			   ->with($entity);
+
+		$parser->createEntityConfig('Address');
+	}
+
+	/**
+	 * Tests OutletXmlParser->createEntityConfig()
+	 */
+	public function testCreateEntityConfigWithEmbedded()
+	{
+		$xml = new SimpleXMLElement(
+			'<?xml version="1.0" encoding="UTF-8"?>
+			<embeddable name="Address" table="address">
+				<property name="Street" column="street" type="varchar" />
+				<property name="Number" column="number" type="int" />
+			</embeddable>'
+		);
+
+		$parser = $this->getMock('OutletXmlParser', array('getConfig', 'getEntityConfig', 'getEmbeddableEntityConfig', 'parseClass', 'parseAssociations', 'parseEmbeddable'), array(), '', false);
+		$config = $this->getMock('OutletConfig', array('entityExists', 'addEntity'), array(), '', false);
+		$entity = $this->getMock('OutletEmbeddableEntity', array('addProperty'), array(), '', false);
+
+		$parser->expects($this->once())
+			   ->method('getConfig')
+			   ->will($this->returnValue($config));
+
+		$parser->expects($this->once())
+			   ->method('getEntityConfig')
+			   ->with('Address')
+			   ->will($this->returnValue(null));
+
+		$parser->expects($this->once())
+			   ->method('getEmbeddableEntityConfig')
+			   ->with('Address')
+			   ->will($this->returnValue($xml));
+
+		$parser->expects($this->never())
+			   ->method('parseClass');
+
+		$parser->expects($this->once())
+			   ->method('parseEmbeddable')
+			   ->with($xml)
+			   ->will($this->returnValue($entity));
+
+		$parser->expects($this->never())
+			   ->method('parseAssociations');
+
+		$config->expects($this->once())
+			   ->method('entityExists')
+			   ->with('Address')
+			   ->will($this->returnValue(false));
+
+		$config->expects($this->once())
+			   ->method('addEntity')
+			   ->with($entity);
 
 		$parser->createEntityConfig('Address');
 	}
@@ -470,6 +555,15 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 						<property name="UserID" column="user_id" type="int"/>
 						<association type="one-to-one" classReference="User" key="UserID" optional="true"/>
 					</class>
+					<embeddable name="BankAccount">
+						<property name="bankName" column="bank_name" type="varchar"/>
+						<property name="account" column="acc" type="varchar"/>
+						<property name="city" ref="City" type="embedded"/>
+					</embeddable>
+					<embeddable name="City">
+						<property name="cityName" column="city_name" type="varchar"/>
+						<property name="state" column="state" type="varchar"/>
+					</embeddable>
 				</classes>
 			</outlet-config>';
 
@@ -513,12 +607,23 @@ class OutletXmlParserTest extends PHPUnit_Framework_TestCase
 		$profile->addProperty(new OutletEntityProperty('UserID', 'user_id', 'int'));
 		$profile->addAssociation(new OutletOneToOneAssociation($user, 'UserID', 'UserID', null, true));
 
+		$bankAcc = new OutletEmbeddableEntity('BankAccount');
+		$bankAcc->addProperty(new OutletEntityProperty('bankName', 'bank_name', 'varchar'));
+		$bankAcc->addProperty(new OutletEntityProperty('account', 'acc', 'varchar'));
+		$bankAcc->addProperty(new OutletEntityProperty('city', null, 'embedded', false, false, null, null, 'City'));
+
+		$city = new OutletEmbeddableEntity('City');
+		$city->addProperty(new OutletEntityProperty('cityName', 'city_name', 'varchar'));
+		$city->addProperty(new OutletEntityProperty('state', 'state', 'varchar'));
+
 		$this->assertEquals($address, $parser->getConfig()->getEntity('Address'));
 		$this->assertEquals($machine, $parser->getConfig()->getEntity('Machine'));
 		$this->assertEquals($project, $parser->getConfig()->getEntity('Project'));
 		$this->assertEquals($bug, $parser->getConfig()->getEntity('Bug'));
 		$this->assertEquals($user, $parser->getConfig()->getEntity('User'));
 		$this->assertEquals($profile, $parser->getConfig()->getEntity('Profile'));
+		$this->assertEquals($bankAcc, $parser->getConfig()->getEntity('BankAccount'));
+		$this->assertEquals($city, $parser->getConfig()->getEntity('City'));
 	}
 
 	/**

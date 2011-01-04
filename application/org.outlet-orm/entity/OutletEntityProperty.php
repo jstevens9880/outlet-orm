@@ -66,6 +66,13 @@ class OutletEntityProperty
 	private $defaultExpression;
 
 	/**
+	 * Class name of embedded type
+	 *
+	 * @var string
+	 */
+	private $ref;
+
+	/**
 	 * Constructor
 	 *
 	 * @param string $name
@@ -75,12 +82,14 @@ class OutletEntityProperty
 	 * @param boolean $autoIncrement
 	 * @param string|int $defaultValue
 	 * @param string $defaultExpression
+	 * @param string $ref
 	 */
-	public function __construct($name, $column, $type, $primaryKey = false, $autoIncrement = false, $defaultValue = null, $defaultExpression = null)
+	public function __construct($name, $column, $type, $primaryKey = false, $autoIncrement = false, $defaultValue = null, $defaultExpression = null, $ref = null)
 	{
 		$this->setName($name);
 		$this->setColumn($column);
 		$this->setType($type);
+		$this->setRef($ref);
 		$this->setPrimaryKey($primaryKey);
 		$this->setAutoIncrement($autoIncrement);
 		$this->setDefaultValue($defaultValue);
@@ -213,5 +222,42 @@ class OutletEntityProperty
 	public function setDefaultExpression($defaultExpression)
 	{
 		$this->defaultExpression = $defaultExpression;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getRef()
+	{
+		return $this->ref;
+	}
+
+	/**
+	 * @param string $ref
+	 */
+	public function setRef($ref)
+	{
+		$this->ref = $ref;
+	}
+
+	/**
+	 * @throws OutletConfigException
+	 * @return OutletEmbeddableEntity
+	 */
+	public function getEmbeddedEntity()
+	{
+		if (!$this->isEmbedded()) {
+			throw new OutletConfigException('The property type must be embedded to use this method.');
+		}
+
+		return OutletEntityManager::getInstance()->getEntity($this->getRef());
+	}
+
+	/**
+	 * @return boolean
+	 */
+	public function isEmbedded()
+	{
+		return $this->getType() == 'embedded';
 	}
 }

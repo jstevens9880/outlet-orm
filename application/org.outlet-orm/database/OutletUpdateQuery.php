@@ -1,6 +1,6 @@
 <?php
 /**
- * Classe responsável pelos UPDATES
+ * Class responsable for UPDATES
  *
  * @package org.outlet-orm
  * @subpackage database
@@ -8,7 +8,7 @@
  */
 
 /**
- * Classe responsável pelos UPDATES
+ * Class responsable for UPDATES
  *
  * @package org.outlet-orm
  * @subpackage database

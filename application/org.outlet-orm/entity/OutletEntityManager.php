@@ -383,27 +383,11 @@ class OutletEntityManager
 		$this->saveManyToOne($obj, $entity);
 
 		$entityHelper = $this->getEntityHelper();
+
 		$query = OutletQuery::insert()->into($entity->getName());
-
-		foreach ($entity->getProperties() as $propName => $property) {
-			if (!$property->getAutoIncrement()) {
-				if (is_null($entityHelper->getPropertyValue($entity, $propName, $obj)) && $property->hasDefaultValue()) {
-					$entityHelper->setPropertyValue($entity, $propName, $obj, $property->getDefaultValue());
-				}
-
-				if (is_null($entityHelper->getPropertyValue($entity, $propName, $obj)) && $property->hasDefaultExpression()) {
-					$query->setExpression('{' . $entity->getName() . '.' . $propName . '}', $property->getDefaultExpression());
-				} else {
-					$query->set(
-						'{' . $entity->getName() . '.' . $propName . '}',
-						$entityHelper->getPropertyValue($entity, $propName, $obj),
-						$property->getType()
-					);
-				}
-			}
-		}
-
+		$entityHelper->fillInsertQuery($entity, $query, $obj);
 		$query->execute();
+
 		$obj = $this->createProxyObject($entity, $obj);
 
 		$this->saveOneToMany($obj, $entity);
@@ -480,27 +464,9 @@ class OutletEntityManager
 
 		if ($mod = $this->getModifiedFields($obj, $entity)) {
 			$entityHelper = $this->getEntityHelper();
+
 			$query = OutletQuery::update($entity->getName());
-
-			foreach ($mod as $key) {
-				$property = $entity->getPropertyByColumn($key);
-
-				if (is_null($property)) {
-					$property = $entity->getProperty($key);
-				}
-
-				$key = $property->getName();
-
-				if (!$property->getPrimaryKey()) {
-					$value = $entityHelper->getPropertyValue($entity, $key, $obj);
-
-					$query->set(
-						'{' . $entity->getName() . '.' . $key . '}',
-						$value,
-						$property->getType()
-					);
-				}
-			}
+			$entityHelper->fillUpdateQuery($entity, $query, $obj, $mod);
 
 			$whereValues = array();
 

@@ -257,6 +257,31 @@ class OutletArrayParserTest extends PHPUnit_Framework_TestCase
 	/**
 	 * Tests OutletArrayParser->entityExists()
 	 */
+	public function testEntityExistsWithEmbedded()
+	{
+		$source = array(
+			'connection' => array(
+				'dsn' => 'mysql:host=myserver.com;dbname=mydb',
+				'username' => 'user',
+				'password' => 'pass',
+				'dialect'  => 'mysql'
+			),
+			'classes' => array(
+				'TestClass' => array()
+			),
+			'embeddables' => array(
+				'TestClass3' => array()
+			)
+		);
+
+		$parser = new OutletArrayParser($source);
+
+		$this->assertTrue($parser->entityExists('TestClass3'));
+	}
+
+	/**
+	 * Tests OutletArrayParser->entityExists()
+	 */
 	public function testEntityExistsNoExistingClass()
 	{
 		$source = array(
@@ -344,5 +369,73 @@ class OutletArrayParserTest extends PHPUnit_Framework_TestCase
 
 		$parser->createEntityConfig('Bug');
 		$this->assertEquals(2, count($parser->getConfig()->getEntities()));
+	}
+
+	/**
+	 * Tests OutletArrayParser->createEntityConfig
+	 */
+	public function testCreateEntityConfigWithEmbedded()
+	{
+		$source = array(
+			'connection' => array(
+				'dsn' => 'mysql:host=myserver.com;dbname=mydb',
+				'username' => 'user',
+				'password' => 'pass',
+				'dialect'  => 'mysql'
+			),
+			'classes' => array(
+				'Project' => array(
+					'table' => 'projects',
+					'props' => array(
+						'ID' => array('id', 'int', array('pk' => true, 'autoIncrement' => true)),
+						'Name' => array('name', 'varchar')
+					)
+				),
+				'Bug' => array(
+					'table' => 'bugs',
+					'props' => array(
+						'ID' => array('id', 'int', array('pk' => true, 'autoIncrement' => true)),
+						'Title' => array('title', 'varchar'),
+						'ProjectID' => array('project_id', 'int'),
+						'Description' => array('description', 'varchar')
+					),
+					'associations' => array(
+						array('many-to-one', 'Project', array('key' => 'ProjectID'))
+					)
+				),
+				'User' => array(
+					'table' => 'users',
+					'props' => array(
+						'ID' => array('id', 'int', array('pk' => true, 'autoIncrement' => true)),
+						'Name' => array('title', 'varchar'),
+						'Address' => array(null, 'embedded', array('ref' => 'Address'))
+					)
+				)
+			),
+			'embeddables' => array(
+				'Address' => array(
+					'props' => array(
+						'Street' => array('street', 'varchar'),
+						'Number' => array('number', 'varchar'),
+					)
+				)
+			)
+		);
+
+		$parser = new OutletArrayParser($source);
+
+		$this->assertEquals(0, count($parser->getConfig()->getEntities()));
+
+		$parser->createEntityConfig('Project');
+		$this->assertEquals(1, count($parser->getConfig()->getEntities()));
+
+		$parser->createEntityConfig('Bug');
+		$this->assertEquals(2, count($parser->getConfig()->getEntities()));
+
+		$parser->createEntityConfig('User');
+		$this->assertEquals(3, count($parser->getConfig()->getEntities()));
+
+		$parser->createEntityConfig('Address');
+		$this->assertEquals(4, count($parser->getConfig()->getEntities()));
 	}
 }

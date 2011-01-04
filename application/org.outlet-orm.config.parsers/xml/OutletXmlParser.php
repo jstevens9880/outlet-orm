@@ -155,7 +155,7 @@ class OutletXmlParser implements OutletConfigParser
 	 */
 	public function entityExists($name)
 	{
-		return !is_null($this->getEntityConfig($name));
+		return !is_null($this->getEntityConfig($name)) ||  !is_null($this->getEmbeddableEntityConfig($name));
 	}
 
 	/**
@@ -175,21 +175,14 @@ class OutletXmlParser implements OutletConfigParser
 				if ($classConfig->association) {
 					$this->parseAssociations($entity, $classConfig);
 				}
+			} elseif ($classConfig = $this->getEmbeddableEntityConfig($name)) {
+				$entity = $this->parseEmbeddable($classConfig);
+				$config->addEntity($entity);
 			} else {
 				throw new OutletXmlParserException('There\'s no entity with name "' . $name . '" on the config source.');
 			}
 		}
 	}
-
-	/**
-	 * Creates the embeddable entity config
-	 *
-	 * @param string $name
-	 */
-	/*public function createEmbeddableEntityConfig($name)
-	{
-		//TODO implement...
-	}*/
 
 	/**
 	 * Returns the entity configuration
@@ -200,6 +193,23 @@ class OutletXmlParser implements OutletConfigParser
 	protected function getEntityConfig($name)
 	{
 		$result = $this->getSource()->xpath('//outlet:class[@name="' . $name . '"]');
+
+		if (count($result) == 1) {
+			return $result[0];
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns the embeddable entity configuration
+	 *
+	 * @param string $name
+	 * @return SimpleXMLElement
+	 */
+	protected function getEmbeddableEntityConfig($name)
+	{
+		$result = $this->getSource()->xpath('//outlet:embeddable[@name="' . $name . '"]');
 
 		if (count($result) == 1) {
 			return $result[0];
@@ -235,6 +245,21 @@ class OutletXmlParser implements OutletConfigParser
 	}
 
 	/**
+	 * @param SimpleXMLElement $class
+	 * @return OutletEmbeddableEntity
+	 */
+	protected function parseEmbeddable(SimpleXMLElement $class)
+	{
+		$entity = new OutletEmbeddableEntity($this->getNodeAttrValue($class, 'name'));
+
+		foreach ($class->property as $property) {
+			$entity->addProperty($this->parseProperty($property));
+		}
+
+		return $entity;
+	}
+
+	/**
 	 * @param SimpleXMLElement $prop
 	 * @return OutletEntityProperty
 	 */
@@ -260,6 +285,10 @@ class OutletXmlParser implements OutletConfigParser
 
 		if ($defaultExpr = $this->getNodeAttrValue($prop, 'defaultExpr')) {
 			$property->setDefaultExpression($defaultExpr);
+		}
+
+		if ($ref = $this->getNodeAttrValue($prop, 'ref')) {
+			$property->setRef($ref);
 		}
 
 		return $property;

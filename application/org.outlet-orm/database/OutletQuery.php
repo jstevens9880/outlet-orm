@@ -8,7 +8,7 @@
  */
 
 /**
- * Base classe for queries
+ * Base class for queries
  *
  * @package org.outlet-orm
  * @subpackage database

@@ -130,7 +130,7 @@ class OutletArrayParser implements OutletConfigParser
 	{
 		$source = $this->getSource();
 
-		return isset($source['classes'][$name]);
+		return isset($source['classes'][$name]) || isset($source['embeddables'][$name]);
 	}
 
 	/**
@@ -149,21 +149,29 @@ class OutletArrayParser implements OutletConfigParser
 			}
 
 			$source = $this->getSource();
-			$classConfig = $source['classes'][$name];
-			$entity = $this->parseClass($name, $classConfig);
 
-			$config->addEntity($entity);
+			if (isset($source['classes'][$name])) {
+				$classConfig = $source['classes'][$name];
+				$entity = $this->parseClass($name, $classConfig);
+				$config->addEntity($entity);
 
-			if (isset($classConfig['associations'])) {
-				$this->parseAssociations($entity, $classConfig['associations']);
+				if (isset($classConfig['associations'])) {
+					$this->parseAssociations($entity, $classConfig['associations']);
+				}
+			} else {
+				$classConfig = $source['embeddables'][$name];
+				$entity = $this->parseEmbeddableClass($name, $classConfig);
+				$config->addEntity($entity);
 			}
 		}
 	}
+
 	/**
 	 * Parses an entity
 	 *
 	 * @param string $name
 	 * @param array $classConfig
+	 * @return OutletEntity
 	 */
 	protected function parseClass($name, $classConfig)
 	{
@@ -183,22 +191,28 @@ class OutletArrayParser implements OutletConfigParser
 	}
 
 	/**
-	 * Creates the embeddable entity config
+	 * Parses an entity
 	 *
 	 * @param string $name
+	 * @param array $classConfig
+	 * @return OutletEntity
 	 */
-	/*public function createEmbeddableEntityConfig($name)
+	protected function parseEmbeddableClass($name, $classConfig)
 	{
-		//TODO implement...
-	}*/
+		$entity = new OutletEmbeddableEntity($name);
+
+		$this->parseProperties($entity, $classConfig['props']);
+
+		return $entity;
+	}
 
 	/**
 	 * Parses the entity's properties
 	 *
-	 * @param OutletEntity $entity
+	 * @param OutletEmbeddableEntity $entity
 	 * @param array $properties
 	 */
-	protected function parseProperties(OutletEntity $entity, array $properties)
+	protected function parseProperties(OutletEmbeddableEntity $entity, array $properties)
 	{
 		foreach ($properties as $propertyName => $property) {
 			$prop = new OutletEntityProperty($propertyName, $property[0], $property[1]);
@@ -218,6 +232,10 @@ class OutletArrayParser implements OutletConfigParser
 
 				if (isset($property[2]['defaultExpr'])) {
 					$prop->setDefaultExpression($property[2]['defaultExpr']);
+				}
+
+				if (isset($property[2]['ref'])) {
+					$prop->setRef($property[2]['ref']);
 				}
 			}
 
