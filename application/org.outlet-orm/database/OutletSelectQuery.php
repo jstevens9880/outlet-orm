@@ -376,7 +376,7 @@ class OutletSelectQuery extends OutletQuery
 	 */
 	protected function getOrderByClause()
 	{
-		if (isset($this->orders[0])) {
+		if (count($this->orders) > 0) {
 			return 'ORDER BY ' . implode(', ',	$this->orders);
 		}
 	}

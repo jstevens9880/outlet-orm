@@ -1,7 +1,7 @@
 <?php
 /**
  * File level comment
- * 
+ *
  * @package org.outlet-orm
  * @subpackage pagination
  * @author Alvaro Carrasco
@@ -9,7 +9,7 @@
 
 /**
  * OutletPaginator....
- * 
+ *
  * @package org.outlet-orm
  * @subpackage pagination
  * @author Alvaro Carrasco
@@ -20,12 +20,17 @@ class OutletPaginatorResultSet
 	 * @var int
 	 */
 	public $totalResults;
-	
+
 	/**
 	 * @var int
 	 */
 	public $totalPages;
-	
+
+	/**
+	 * @var int
+	 */
+	public $resultsPerPage;
+
 	/**
 	 * @var int
 	 */
@@ -35,42 +40,42 @@ class OutletPaginatorResultSet
 	 * @var int
 	 */
 	public $firstPage;
-	
+
 	/**
 	 * @var int
 	 */
 	public $lastPage;
-	
+
 	/**
 	 * @var int
 	 */
 	public $previousPage;
-	
+
 	/**
 	 * @var int
 	 */
 	public $nextPage;
-	
+
 	/**
 	 * @var int
 	 */
 	public $start;
-	
+
 	/**
 	 * @var int
 	 */
 	public $end;
-	
+
 	/**
 	 * @var array
 	 */
 	public $results;
-	
+
 	/**
 	 * @var boolean
 	 */
 	public $isFirst;
-	
+
 	/**
 	 * @var boolean
 	 */
@@ -92,9 +97,10 @@ class OutletPaginatorResultSet
 		$this->lastPage = $this->totalPages;
 		$this->previousPage = $currentPage - 1;
 		$this->nextPage = $currentPage + 1;
+		$this->resultsPerPage = $resultsPerPage;
 		$this->start = $currentPage * $resultsPerPage - $resultsPerPage + 1;
 		$this->end = ($this->totalResults > ($this->start + $resultsPerPage)) ? $this->start + $resultsPerPage - 1 : $this->totalResults;
-		
+
 		$this->isFirst = $currentPage == 1;
 		$this->isLast = $currentPage == $this->lastPage;
 	}
