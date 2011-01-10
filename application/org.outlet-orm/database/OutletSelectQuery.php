@@ -180,8 +180,19 @@ class OutletSelectQuery extends OutletQuery
 
 		if ($assoc = $entity->getAssociation($foreignData->entityName)) {
 			$foreignEntity = $assoc->getEntity();
+			$fkEntityName = $foreignEntity->getName();
 
-			return $this->leftJoin($foreignEntity->getName() . ' ' . $foreignData->alias, $entityData->alias . '.' . $assoc->getKey(), $foreignData->alias . '.' . $assoc->getRefKey());
+			if ($foreignData->entityName != $fkEntityName) {
+				$alias = strpos($foreignEntityName, ' ') !== false ? substr($foreignEntityName, strpos($foreignEntityName, ' ')) : '';
+
+				$foreignData = $this->extractEntityAndAlias($fkEntityName . $alias);
+			}
+
+			if ($fkEntityName != $foreignData->alias) {
+				$fkEntityName .= ' ' . $foreignData->alias;
+			}
+
+			return $this->leftJoin($fkEntityName, $entityData->alias . '.' . $assoc->getKey(), $foreignData->alias . '.' . $assoc->getRefKey());
 		}
 
 		throw new OutletException('No association found with entity or alias [' . $foreignData->entityName . ']');
@@ -432,8 +443,8 @@ class OutletSelectQuery extends OutletQuery
 	 */
 	public function toSql()
 	{
-		$where = isset($this->criteria[0]) ? 'WHERE ' . implode('AND ',	$this->criteria) : '';
-		$having = isset($this->having[0]) ? 'HAVING ' . implode('AND ',	$this->having) : '';
+		$where = isset($this->criteria[0]) ? 'WHERE ' . implode(' AND ', $this->criteria) : '';
+		$having = isset($this->having[0]) ? 'HAVING ' . implode(' AND ', $this->having) : '';
 
 		if (isset($this->fields['COUNT(*)'])) {
 			return

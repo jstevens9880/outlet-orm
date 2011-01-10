@@ -11,6 +11,7 @@ require_once 'application/org.outlet-orm/proxy/OutletProxyFactory.php';
 require_once 'application/org.outlet-orm/entity/OutletEmbeddableEntity.php';
 require_once 'application/org.outlet-orm/entity/OutletEntity.php';
 require_once 'application/org.outlet-orm/association/OutletAssociation.php';
+require_once 'application/org.outlet-orm/association/OutletOneToManyAssociation.php';
 require_once 'application/org.outlet-orm/database/OutletSelectQuery.php';
 
 require_once 'PHPUnit/Framework/TestCase.php';
@@ -174,9 +175,8 @@ class OutletSelectQueryTest extends PHPUnit_Framework_TestCase
 						  ->method('getFromData')
 						  ->will($this->returnValue($entityData));
 
-		$outletSelectQuery->expects($this->once())
+		$outletSelectQuery->expects($this->exactly(2))
 						  ->method('extractEntityAndAlias')
-						  ->with('ForeignEntityName')
 						  ->will($this->returnValue($foreignData));
 
 		$outletSelectQuery->expects($this->once())
@@ -636,7 +636,7 @@ class OutletSelectQueryTest extends PHPUnit_Framework_TestCase
 	/**
 	 * Tests OutletSelectQuery->toSql()
 	 */
-	public function testToSql()
+	public function testToSqlWithCount()
 	{
 		$outletSelectQuery = $this->getMock('OutletSelectQueryMock', array('appendField'), array(), '', false);
 
@@ -654,7 +654,7 @@ class OutletSelectQueryTest extends PHPUnit_Framework_TestCase
 	/**
 	 * Tests OutletSelectQuery->toSql()
 	 */
-	public function testToSql2()
+	public function testToSqlNonCount()
 	{
 		$outletSelectQuery = $this->getMock('OutletSelectQueryMock', array('getGroupByClause', 'getOrderByClause', 'getLimitClause', 'fillSelectedFields'), array(), '', false);
 
@@ -682,5 +682,83 @@ class OutletSelectQueryTest extends PHPUnit_Framework_TestCase
 		$sql = 'SELECT test_field FROM test_table LEFT JOIN test_table2 ON 1 = 1 WHERE 1 = 1 GROUP BY test_column ORDER BY test_column ASC HAVING 2 = 2 LIMIT 10 OFFSET 1';
 
 		$this->assertEquals($sql, preg_replace('/\s+/', ' ', $outletSelectQuery->toSql()));
+	}
+
+	/**
+	 * Tests OutletSelectQuery->toSql()
+	 */
+	public function testToSqlAliasedWith()
+	{
+		$query = $this->getMock('OutletSelectQuery', array('getEntityManager'));
+		$entityManager = $this->getMock('OutletEntityManager', array('getEntity'));
+
+		$entity1 = new OutletEntity('User', 'user');
+		$entity1->addProperty(new OutletEntityProperty('id', 'id', 'int', true, true));
+		$entity1->addProperty(new OutletEntityProperty('test', 'test', 'int'));
+
+		$entity2 = new OutletEntity('Bug', 'bug');
+		$entity2->addProperty(new OutletEntityProperty('id', 'id', 'int', true, true));
+		$entity2->addProperty(new OutletEntityProperty('userId', 'user_id', 'int'));
+		$entity2->addProperty(new OutletEntityProperty('test2', 'test2', 'int'));
+
+		$entity1->addAssociation(new OutletOneToManyAssociation($entity2, 'id', 'userId', 'bugList'));
+
+		$query->expects($this->any())
+			  ->method('getEntityManager')
+			  ->will($this->returnValue($entityManager));
+
+		$entityManager->expects($this->any())
+					  ->method('getEntity')
+					  ->with('User')
+					  ->will($this->returnValue($entity1));
+
+		$query->from('User a')
+			  ->with('bugList b')
+			  ->where('{a.test} > 0')
+			  ->where('{b.test2} > 0')
+			  ->limit(5);
+
+		$sql = 'SELECT {a.id}, {a.test} FROM {User a} LEFT JOIN {Bug b} ON {a.id} = {b.userId} WHERE {a.test} > 0 AND {b.test2} > 0 LIMIT 5';
+
+		$this->assertEquals($sql, preg_replace('/\s+/', ' ', $query->toSql()));
+	}
+
+	/**
+	 * Tests OutletSelectQuery->toSql()
+	 */
+	public function testToSqlNonAliasedWith()
+	{
+		$query = $this->getMock('OutletSelectQuery', array('getEntityManager'));
+		$entityManager = $this->getMock('OutletEntityManager', array('getEntity'));
+
+		$entity1 = new OutletEntity('User', 'user');
+		$entity1->addProperty(new OutletEntityProperty('id', 'id', 'int', true, true));
+		$entity1->addProperty(new OutletEntityProperty('test', 'test', 'int'));
+
+		$entity2 = new OutletEntity('Bug', 'bug');
+		$entity2->addProperty(new OutletEntityProperty('id', 'id', 'int', true, true));
+		$entity2->addProperty(new OutletEntityProperty('userId', 'user_id', 'int'));
+		$entity2->addProperty(new OutletEntityProperty('test2', 'test2', 'int'));
+
+		$entity1->addAssociation(new OutletOneToManyAssociation($entity2, 'id', 'userId', 'bugList'));
+
+		$query->expects($this->any())
+			  ->method('getEntityManager')
+			  ->will($this->returnValue($entityManager));
+
+		$entityManager->expects($this->any())
+					  ->method('getEntity')
+					  ->with('User')
+					  ->will($this->returnValue($entity1));
+
+		$query->from('User')
+			  ->with('bugList')
+			  ->where('{User.test} > 0')
+			  ->where('{Bug.test2} > 0')
+			  ->limit(5);
+
+		$sql = 'SELECT {User.id}, {User.test} FROM {User} LEFT JOIN {Bug} ON {User.id} = {Bug.userId} WHERE {User.test} > 0 AND {Bug.test2} > 0 LIMIT 5';
+
+		$this->assertEquals($sql, preg_replace('/\s+/', ' ', $query->toSql()));
 	}
 }
