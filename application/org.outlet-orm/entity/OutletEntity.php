@@ -185,7 +185,7 @@ class OutletEntity extends OutletEmbeddableEntity
 		$associations = array();
 
 		foreach ($this->getAssociations() as $entityName => $association) {
-			if ($association instanceof $associationType) {
+			if (get_class($association) == $associationType) {
 				$associations[$entityName] = $association;
 			}
 		}
