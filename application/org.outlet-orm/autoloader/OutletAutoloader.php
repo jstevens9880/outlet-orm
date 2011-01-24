@@ -49,7 +49,7 @@ class OutletAutoloader
 	 */
 	protected function includeClass($file)
 	{
-		include $file;
+		require $file;
 	}
 
 	/**
@@ -98,6 +98,7 @@ class OutletAutoloader
 			$this->directories[] = $parsersDir . 'array/';
 			$this->directories[] = $utilsDir . 'nestedset/';
 			$this->directories[] = $utilsDir . 'pagination/';
+			$this->directories[] = $utilsDir . 'dao_support/';
 		}
 
 		return $this->directories;
