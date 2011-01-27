@@ -104,4 +104,24 @@ class OutletPaginatorResultSet
 		$this->isFirst = $currentPage == 1;
 		$this->isLast = $currentPage == $this->lastPage;
 	}
+	
+	public function getResultSet()
+	{
+		return $this->results;
+	}
+	
+	public function getCurrentPage()
+	{
+		return $this->currentPage;
+	}
+	
+	public function getNextPage()
+	{
+		return $this->nextPage > $this->lastPage ? null : $this->nextPage;
+	}
+	
+	public function getPreviousPage()
+	{
+		return $this->previousPage < $this->firstPage ? null : $this->previousPage;
+	}
 }
