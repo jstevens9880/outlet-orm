@@ -19,7 +19,7 @@ On your project add OutletORM's folder to your include path:
 On your project include the OutletORM's autoloader and register it with SPL:
 
     require 'application/org.outlet-orm/autoloader/OutletAutoloader.php';
-    spl_autoload_register(array(new OutletAutoloader(), 'autoLoad'));
+    OutletAutoloader::register();
     
 Usage
 -----
