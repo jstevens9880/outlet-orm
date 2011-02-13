@@ -88,6 +88,45 @@ class Outlet
 	}
 
 	/**
+	 * Executes a passed sql string
+	 *
+	 */
+	public function query($sql)
+	{
+		$this->getEntityManager()->getConnection()->query($sql);
+	}
+
+	/**
+	 * Starts a transaction
+	 *
+	 * @see OutletConnection::beginTransaction()
+	 */
+	public function beginTransaction()
+	{
+		$this->getEntityManager()->getConnection()->beginTransaction();
+	}
+
+	/**
+	 * Commits a transaction
+	 *
+	 * @see OutletConnection::commit()
+	 */
+	public function commit()
+	{
+		$this->getEntityManager()->getConnection()->commit();
+	}
+
+	/**
+	 * Rolls back a transaction
+	 *
+	 * @see OutletConnection::rollback()
+	 */
+	public function rollback()
+	{
+		$this->getEntityManager()->getConnection()->rollback();
+	}
+
+	/**
 	 * Persist the passed entity to the database by executing an INSERT or an UPDATE
 	 *
 	 * @param object $obj
