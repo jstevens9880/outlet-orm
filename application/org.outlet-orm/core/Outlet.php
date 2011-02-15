@@ -88,17 +88,25 @@ class Outlet
 	}
 
 	/**
-	 * Prepares and executes a query
+     * function createSqlQuery
      *
-     * Runs PDO::prepare on the passed $sql string. If parameters are passed for binding they are 
-     * bound to the statement. The passed parameters for binding format is an array that can be
-     * in the following formats:
-     * Used in replacing question marks in the statement: array(1 => 'value', 2 => 'value')
-     * Used in replacing question marks in the statement identifying the data type: array(1 => array('value', PDO::PARAM_INT), 2 => array('value',PDO::PARAM_STR))
-     * Used in replacing question named placeholders in the statement: array(':placeholder1' => 'value', ':placeholder2' => 'value')
-     * Used in replacing question marks in the statement identifying the data type: array(':placeholder1' => array('value', PDO::PARAM_INT), ':placeholder2' => array('value',PDO::PARAM_STR))
+	 * Prepares and executes a query. Returning either the resulting recordset from a SELECT or
+     * the boolean return value from the called PDOStatement::execute.
      *
-     * Finally PDOStatement::execute is called on the statement.
+     * Passing values to bind to the statement is optional. If values are passed for binding they
+     * must be in an array. The array format is detailed below:
+     * 1) Used in replacing question marks in the statement:
+     *    array(1 => 'value', 2 => 'value')
+     * 2) Used in replacing question marks in the statement also identifying the data type:
+     *    array(1 => array('value', PDO::PARAM_INT), 2 => array('value',PDO::PARAM_STR))
+     * 3) Used in replacing question named placeholders in the statement:
+     *    array(':placeholder1' => 'value', ':placeholder2' => 'value')
+     * 4) Used in replacing question marks in the statement also identifying the data type:
+     *    array(':placeholder1' => array('value', PDO::PARAM_INT), ':placeholder2' => array('value',PDO::PARAM_STR))
+     *
+     * While it is possible to simply pass a SQL string into this function for preparation and execution,
+     * it is best if you are passing in user generated variables to use the $bindValues parameter in order
+     * to help prevent sql injections.
 	 *
 	 * @param string $sql
 	 * @param array  $bindValues
@@ -116,8 +124,8 @@ class Outlet
                 $stm->bindValue($k, $v);
             }
         }
-        $stm->execute();
-        return (strtolower(substr(trim($sql), 0, 3)) == 'sel') ? $stm->fetchAll(PDO::FETCH_ASSOC) : $stm;
+        $execResult = $stm->execute();
+        return (strtolower(substr(trim($sql), 0, 3)) == 'sel') ? $stm->fetchAll(PDO::FETCH_ASSOC) : $execResult;
 	}
 
 	/**
