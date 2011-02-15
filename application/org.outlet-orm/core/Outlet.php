@@ -88,12 +88,36 @@ class Outlet
 	}
 
 	/**
-	 * Executes a passed sql string
+	 * Prepares and executes a query
+     *
+     * Runs PDO::prepare on the passed $sql string. If parameters are passed for binding they are 
+     * bound to the statement. The passed parameters for binding format is an array that can be
+     * in the following formats:
+     * Used in replacing question marks in the statement: array(1 => 'value', 2 => 'value')
+     * Used in replacing question marks in the statement identifying the data type: array(1 => array('value', PDO::PARAM_INT), 2 => array('value',PDO::PARAM_STR))
+     * Used in replacing question named placeholders in the statement: array(':placeholder1' => 'value', ':placeholder2' => 'value')
+     * Used in replacing question marks in the statement identifying the data type: array(':placeholder1' => array('value', PDO::PARAM_INT), ':placeholder2' => array('value',PDO::PARAM_STR))
+     *
+     * Finally PDOStatement::execute is called on the statement.
 	 *
+	 * @param string $sql
+	 * @param array  $bindValues
+	 * @return mixed 
 	 */
-	public function query($sql)
+	public function createSqlQuery($sql, array $bindValues = array())
 	{
-		$this->getEntityManager()->getConnection()->query($sql);
+		$stm = $this->getEntityManager()->getConnection()->prepare(
+            $sql
+        );
+        foreach ($bindValues as $k => $v) {
+            if (is_array($v)) {
+                $stm->bindValue($k, $v[0], $v[1]);
+            } else {
+                $stm->bindValue($k, $v);
+            }
+        }
+        $stm->execute();
+        return (strtolower(substr(trim($sql), 0, 3)) == 'sel') ? $stm->fetchAll(PDO::FETCH_ASSOC) : $stm;
 	}
 
 	/**
